@@ -2,15 +2,16 @@
 
 Step-by-step guide for the admin managing Clash of Codes 2.0 on event day.
 
-All admin API calls require the `x-admin-token` header. The admin dashboard UI wraps all of these actions.
+All admin API calls require the `x-admin-token` header (value = `ADMIN_SECRET` env var). The admin dashboard UI wraps all of these actions. Admin actions are rate-limited to **30 requests per minute**.
 
 ---
 
 ## Pre-Event Setup
 
 - [ ] Load Phase 1 questions into DB via `POST /api/admin/phase1/questions`
-- [ ] Load Phase 2 questions into DB via `POST /api/admin/phase2/questions`
-- [ ] Verify MongoDB connection and server are running
+- [ ] Load Phase 2 questions into DB via `POST /api/admin/phase2/questions` (min 10 needed)
+- [ ] Verify MongoDB connection and server are running (`GET /api/health`)
+- [ ] Tune env vars for venue WiFi (`SOCKET_PING_INTERVAL_MS`, `SOCKET_PING_TIMEOUT_MS`, etc.)
 - [ ] Open registration on the frontend (no toggle needed — always open before Phase 1 starts)
 
 ---
@@ -21,33 +22,45 @@ All admin API calls require the `x-admin-token` header. The admin dashboard UI w
 | ---- | ----------------------------- | --------------------------------------- |
 | 1    | Open quiz for participants    | `POST /api/admin/phase1/start`          |
 | 2    | Monitor submission count live | `GET /api/admin/participants`           |
-| 3    | Close quiz when time is up    | `POST /api/admin/phase1/end`            |
-| 4    | View top 64 per track         | `GET /api/admin/participants/qualified` |
+| 3    | Check session status          | `GET /api/admin/phase1/status`          |
+| 4    | Close quiz when time is up    | `POST /api/admin/phase1/end`            |
+| 5    | View top 64 per track         | `GET /api/admin/participants/qualified` |
+| 6    | View leaderboard              | `GET /api/phase1/leaderboard`           |
 
 **After Phase 1 ends**, the server:
 
-- Ranks participants by `phase1Score` (desc), then `phase1Time` (asc)
-- Sets `phase1Qualified = true` for top 64 per track
+- Ranks participants by `phase1Score` (desc), then `phase1Time` (asc) per track
+- Sets `phase1Qualified = true` and `phase2Active = true` for top 64 per track
+
+> Note: Starting Phase 1 automatically ends any existing active session.
 
 ---
 
 ## Phase 2 — MCQ Duels
 
-Repeat the following steps for each round until 8 players remain.
+Repeat the following steps for each round until ≤ 8 players remain per track (typically 3 rounds: 64→32→16→8).
 
 | Step | Action                             | API Call                           |
 | ---- | ---------------------------------- | ---------------------------------- |
-| 1    | Generate pairings for round N      | `POST /api/admin/phase2/matchmake` |
-| 2    | Announce match room IDs to players | — (display on screen / share)      |
-| 3    | Monitor matches in real-time       | `GET /api/admin/phase2/matches`    |
-| 4    | Wait for all matches to complete   | — (Socket.IO auto-resolves)        |
-| 5    | Advance winners to next round      | `POST /api/admin/phase2/advance`   |
+| 1    | Generate pairings for round N      | `POST /api/admin/phase2/matchmake` (body: `{ round: N }`) |
+| 2    | View created matches               | `GET /api/admin/phase2/matches?round=N` |
+| 3    | Announce match room IDs to players | — (display on screen / share)      |
+| 4    | Monitor matches in real-time       | `GET /api/admin/phase2/matches`    |
+| 5    | Wait for all matches to complete   | — (Socket.IO auto-resolves duels)  |
+| 6    | Advance winners to next round      | `POST /api/admin/phase2/advance` (body: `{ round: N }`) |
 
 **Admin checklist before each round:**
 
 - Confirm all players from the previous round's winners are present
-- Confirm player count is even (must be 32 / 16 / 8)
-- Confirm new question set is available for Phase 2 (or reuse)
+- Confirm player count is even (must be 64 / 32 / 16 / 8)
+- Confirm Phase 2 question pool has ≥ 10 questions
+- Advance will fail if any matches in the round are still incomplete
+
+**Duel mechanics (handled by server):**
+- Each match gets 10 random Phase 2 questions
+- 90-second timer per duel (configurable via `DUEL_DURATION_SECONDS`)
+- Unanswered questions auto-submitted as incorrect on timeout
+- Disconnect grace period: 15s before opponent wins by forfeit
 
 ---
 

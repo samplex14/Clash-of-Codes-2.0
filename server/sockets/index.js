@@ -1,5 +1,6 @@
 const { Server } = require("socket.io");
 const duelHandler = require("./duelHandler");
+const phase1Handler = require("./phase1Handler");
 
 let io;
 
@@ -14,9 +15,16 @@ async function initSocket(server) {
     allowUpgrades: true,
   });
 
+  // Phase 2 — MCQ Duels
   const duelNsp = io.of("/duel");
   duelNsp.on("connection", (socket) => {
     duelHandler(duelNsp, socket);
+  });
+
+  // Phase 1 — Rapid Fire
+  const phase1Nsp = io.of("/phase1");
+  phase1Nsp.on("connection", (socket) => {
+    phase1Handler(phase1Nsp, socket);
   });
 
   console.log("Socket.IO initialized");
@@ -27,3 +35,4 @@ function getIO() {
 }
 
 module.exports = { initSocket, getIO };
+

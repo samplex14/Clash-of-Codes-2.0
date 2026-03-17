@@ -6,7 +6,7 @@ How Phase 2 player pairing works for each round.
 
 ## Overview
 
-Matchmaking is run **once per round** by the admin. It operates independently per track (1st year and 2nd year pools never mix).
+Matchmaking is run **once per round** by the admin via `POST /api/admin/phase2/matchmake` (body: `{ round }`). It operates independently per track (1st year and 2nd year pools never mix).
 
 ---
 
@@ -21,19 +21,22 @@ Matchmaking is run **once per round** by the admin. It operates independently pe
 ## Algorithm (per track)
 
 ```
-function generateMatches(activePlayers, round, trackId):
-  1. Filter: players where phase2Active = true AND phase2Eliminated = false
-  2. Shuffle: Fisher-Yates random shuffle of the filtered list
-  3. Pair: zip adjacent elements → [p[0],p[1]], [p[2],p[3]], ...
-  4. For each pair:
-       - Create a `matches` document with status = "pending"
-       - Assign a unique roomId (= match._id)
-       - Fetch N questions from `questions` collection (phase = 2, random)
-       - Embed question IDs in the match document
+function generateMatches(track, round):
+  1. Query: participants where track = track, phase2Active = true, phase2Eliminated = false
+  2. Validate: must have ≥ 2 players, must be even count
+  3. Shuffle: Fisher-Yates random shuffle of the player list
+  4. For each adjacent pair [players[i], players[i+1]]:
+       - Fetch all Phase 2 questions from DB
+       - Shuffle them and pick first 10 (QUESTIONS_PER_MATCH = 10)
+       - Create a `matches` document with:
+           · round, track
+           · player1 = players[i], player2 = players[i+1]
+           · questions = 10 randomly selected question IDs
+           · status = "pending"
   5. Return array of created match documents
 ```
 
-### Fisher-Yates Shuffle (used in `utils/matchmaking.js`)
+### Fisher-Yates Shuffle (from `utils/matchmaking.js`)
 
 ```js
 function shuffle(arr) {
@@ -47,31 +50,54 @@ function shuffle(arr) {
 
 ---
 
+## Match Configuration
+
+| Setting | Value | Source |
+|---|---|---|
+| Questions per match | 10 | `QUESTIONS_PER_MATCH` constant in `utils/matchmaking.js` |
+| Duel duration | 90 seconds | `DUEL_DURATION_SECONDS` env var (default: 90) |
+| Disconnect grace period | 15 seconds | `DUEL_DISCONNECT_GRACE_SECONDS` env var (default: 15) |
+
+---
+
 ## Round Progression
 
 | Round | Players In | Pairs | Players Advancing |
 | ----- | ---------- | ----- | ----------------- |
 | 1     | 64         | 32    | 32                |
 | 2     | 32         | 16    | 16                |
-| 3     | 16         | 8     | 8                 |
-| 4     | 8          | 4     | 4 → Phase 3       |
+| 3     | 16         | 8     | 8 → Phase 3      |
 
-> Phase 2 ends after Round 3 (when 8 players remain). Round 4 does not run.
+> Phase 2 ends when ≤ 8 players remain per track. The `advanceWinners` endpoint automatically sets `phase3Qualified = true` for remaining players.
 
 ---
 
 ## Duel Winner Determination
 
-After both players submit all answers (or the timer expires):
+After both players submit all answers (or the 90-second timer expires):
 
 ```
-1. Count correct answers for each player.
-2. If player1Score > player2Score → player1 wins.
-3. If player2Score > player1Score → player2 wins.
-4. If scores are equal → compare totalTime:
-     - Lower time wins.
-5. Update match.winner, set losing player's phase2Eliminated = true.
+1. Auto-submit: mark any unanswered questions as incorrect (answerIndex = null).
+2. Count correct answers for each player.
+3. If player1Score > player2Score → player1 wins.
+4. If player2Score > player1Score → player2 wins.
+5. If scores are equal → compare totalTime (ms from match start to last answer):
+     - Lower totalTime wins.
+6. Update match.winner, match.status = "completed".
+7. Emit `duel_end` to both players.
 ```
+
+Loser elimination happens when the admin calls `POST /api/admin/phase2/advance` (sets `phase2Eliminated = true`, `phase2Active = false` for each loser).
+
+---
+
+## Disconnect Handling
+
+If a player disconnects during an active duel:
+
+1. Server starts a grace period timer (`DUEL_DISCONNECT_GRACE_SECONDS`)
+2. If the player reconnects (`join_room` again), the timer is cancelled
+3. If the timer expires, the remaining player wins with `reason: "disconnect_forfeit"`
 
 ---
 
@@ -79,6 +105,8 @@ After both players submit all answers (or the timer expires):
 
 | Scenario              | Handling                                                                                               |
 | --------------------- | ------------------------------------------------------------------------------------------------------ |
-| Odd number of players | Should not happen (64 → 32 → 16 → 8 are all even). Admin verifies count before triggering matchmaking. |
-| Player drops mid-duel | Opponent is awarded the win after a timeout (configurable).                                            |
-| Same score, same time | Extremely unlikely; admin manually resolves.                                                           |
+| Odd number of players | Error returned: "Admin must resolve." Admin must manually adjust player count before matchmaking.      |
+| < 2 players in track  | Error returned: "Not enough players in {track}."                                                       |
+| < 10 Phase 2 questions | Error returned: "Not enough Phase 2 questions." Admin must add more questions before matchmaking.    |
+| Player drops mid-duel | Opponent wins after grace period (default 15s, configurable).                                         |
+| Same score, same time | Player 1 wins (deterministic tiebreaker — `player1TotalTime <= player2TotalTime`).                     |

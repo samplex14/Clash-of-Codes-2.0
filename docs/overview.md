@@ -9,11 +9,13 @@ There are **separate tracks** for:
 - 1st Year Students
 - 2nd Year Students
 
+Both tracks run independently through all three phases.
+
 ## Competition Structure
 
 | Phase | Name             | Format          | Participants   |
 | ----- | ---------------- | --------------- | -------------- |
-| 1     | Rapid Fire Round | Quick Questions | All Registered |
+| 1     | Rapid Fire Round | Quick MCQ Q&A   | All Registered |
 | 2     | MCQ Duels        | 1v1 Matchmaking | Top 64         |
 | 3     | Grand Finals     | HackerRank      | Top 8          |
 
@@ -24,11 +26,11 @@ All Participants
       |
   [Phase 1 — Rapid Fire]
       |
-  Top 64 Qualify
+  Top 64 per Track Qualify
       |
   [Phase 2 — MCQ Duels]
-      |  (6 rounds, halving each time)
-  Top 8 Survive
+      |  (3 rounds: 64→32→16→8)
+  Top 8 per Track Survive
       |
   [Phase 3 — Grand Finals on HackerRank]
       |

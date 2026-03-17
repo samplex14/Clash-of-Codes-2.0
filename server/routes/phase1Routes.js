@@ -30,6 +30,7 @@ router.get(
 );
 
 // Public routes
+router.get("/phase1/status", getPhase1Status);
 router.post("/phase1/submit", phase1SubmitLimiter, submitPhase1);
 router.get("/phase1/questions", getPhase1Questions);
 

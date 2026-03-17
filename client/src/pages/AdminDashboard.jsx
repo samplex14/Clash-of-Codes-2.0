@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../utils/api';
+import { useSocket } from '../hooks/useSocket';
 import Leaderboard from '../components/Leaderboard';
 
 const AdminDashboard = () => {
@@ -10,6 +11,7 @@ const AdminDashboard = () => {
   // Phase 1 specific state
   const [phase1Status, setPhase1Status] = useState('idle'); // idle, active, ended
   const [leaderboard, setLeaderboard] = useState([]);
+  const { socket } = useSocket('/phase1');
 
   // Phase 1 control functions
   const fetchPhase1Status = async () => {
@@ -49,7 +51,21 @@ const AdminDashboard = () => {
 
   const startPhase1 = async () => {
     try {
+      // Still call REST to maintain DB state history if needed, though Socket.IO handles the active session
       await api.post('/admin/phase1/start', {}, { headers: { 'x-admin-token': token } });
+      
+      // Critical: Tell Socket.IO to start pushing questions to everyone
+      if (socket) {
+        socket.emit('phase1:start', { adminToken: token }, (res) => {
+          if (res && res.error) {
+             console.error("Socket start error:", res.error);
+             alert("Error pushing questions via socket: " + res.error);
+          } else {
+             console.log(`Socket started successfully: ${res.questionCount} questions to ${res.participantCount} users`);
+          }
+        });
+      }
+      
       setPhase1Status('active');
     } catch(err) {
       alert('Error starting phase 1: ' + (err.response?.data?.error || err.message));
