@@ -1,35 +1,17 @@
-# Phase 3 — Grand Finals on HackerRank
+# Phase 3: Grand Finals
+
+**Status:** 🚧 Planning / External
 
 ## Overview
+The final phase determines the ultimate winner among qualified finalists.
 
-The ultimate showdown. Only the **top 8 survivors** from Phase 2 qualify for the Grand Finals, hosted on **HackerRank**.
+## Proposed Format
+*   **Platform:** HackerRank / LeetCode (Private Contest) OR Built-in Code Editor.
+*   **Participants:** Final qualified set selected after Phase 1 process.
+*   **Duration:** 1-2 Hours.
+*   **Content:** 3 Algorithmic Coding Problems (Easy, Medium, Hard).
 
-## Format
-
-- The 8 finalists are **divided into 4 pairs** (2 players per pair).
-- Each player tackles a set of **competitive programming problems** within a fixed time window.
-
-## Ranking Criteria
-
-Players are ranked in the following priority order:
-
-1. **Problems Solved** — more problems solved ranks higher.
-2. **Score** — higher score ranks higher (if problems solved are equal).
-3. **Fastest Submission Time** — earlier submission ranks higher (if score is equal).
-
-## Winner
-
-The player who finishes **ranked 1st** on the HackerRank leaderboard is crowned the **Champion of Clash of Codes**.
-
-## Key Points
-
-| Detail            | Value                    |
-| ----------------- | ------------------------ |
-| Participants      | Top 8 from Phase 2       |
-| Platform          | HackerRank               |
-| Pairs             | 4 pairs (2 players each) |
-| Format            | Competitive programming  |
-| Primary ranking   | Problems solved          |
-| Secondary ranking | Score                    |
-| Tiebreaker        | Fastest submission time  |
-| Winner            | Rank 1 on leaderboard    |
+## Integration
+*   Currently, the system's responsibility ends at identifying the Top 8.
+*   Admin uses the `AdminDashboard` to export the list of Finalists.
+*   Manual invites are sent for the coding contest.

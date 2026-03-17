@@ -1,0 +1,49 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Participant {
+  id          Int       @id @default(autoincrement())
+  usn         String    @unique
+  name        String
+  track       String
+  phase1Score Int       @default(0)
+  qualified   Boolean   @default(false)
+  submittedAt DateTime?
+  socketId    String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model Question {
+  id              Int      @id @default(autoincrement())
+  questionText    String
+  options         Json
+  correctOptionId String
+  matchRound      Int?
+  createdAt       DateTime @default(now())
+}
+
+model Match {
+  id         Int      @id @default(autoincrement())
+  matchRound Int
+  player1USN String
+  player2USN String
+  status     String   @default("pending")
+  winner     String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model Phase1Session {
+  id        Int      @id @default(autoincrement())
+  status    String   @default("idle")
+  startedAt DateTime?
+  endedAt   DateTime?
+  createdAt DateTime @default(now())
+}

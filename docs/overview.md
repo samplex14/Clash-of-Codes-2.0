@@ -1,44 +1,28 @@
-# Clash of Codes 2.0 — Overview
+# Project Overview
 
-Clash of Codes is a **1v1 coding competition** themed around Clash of Clans, structured across three phases to crown a single champion.
+Clash of Codes 2.0 is a Phase 1-only competitive coding event platform.
 
-## Tracks
+## Objectives
 
-There are **separate tracks** for:
+- Run fast participant onboarding and quiz delivery.
+- Provide reliable admin controls for starting and ending the round.
+- Publish qualification outcomes and leaderboard rankings.
 
-- 1st Year Students
-- 2nd Year Students
+## Architecture
 
-Both tracks run independently through all three phases.
+- Frontend: React (Vite) + Tailwind CSS.
+- Backend: Node.js + Express + Socket.IO (`/phase1` namespace only).
+- Database: MongoDB (participants, questions, phase1sessions).
 
-## Competition Structure
+## Competition Flow
 
-| Phase | Name             | Format          | Participants   |
-| ----- | ---------------- | --------------- | -------------- |
-| 1     | Rapid Fire Round | Quick MCQ Q&A   | All Registered |
-| 2     | MCQ Duels        | 1v1 Matchmaking | Top 64         |
-| 3     | Grand Finals     | HackerRank      | Top 8          |
+1. Participants register with USN, name, and year.
+2. Admin starts Phase 1.
+3. Participants receive shuffled questions and submit answers.
+4. Admin ends Phase 1.
+5. Leaderboard and qualification status are published.
 
-## Progression
+## Current Status
 
-```
-All Participants
-      |
-  [Phase 1 — Rapid Fire]
-      |
-  Top 64 per Track Qualify
-      |
-  [Phase 2 — MCQ Duels]
-      |  (3 rounds: 64→32→16→8)
-  Top 8 per Track Survive
-      |
-  [Phase 3 — Grand Finals on HackerRank]
-      |
-  Champion Crowned
-```
-
-## Phases
-
-- [Phase 1 — Rapid Fire Round](./phase-1-rapid-fire.md)
-- [Phase 2 — MCQ Duels](./phase-2-mcq-duels.md)
-- [Phase 3 — Grand Finals](./phase-3-grand-finals.md)
+- Phase 1: Active and supported.
+- Additional tournament phases: Not part of this codebase.
