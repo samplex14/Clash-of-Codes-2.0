@@ -1,21 +1,21 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useParticipant } from '../context/ParticipantContext';
-import { useSocket } from '../hooks/useSocket';
-import { useTimer } from '../hooks/useTimer';
-import QuestionCard from '../components/QuestionCard';
-import Timer from '../components/Timer';
+import React, { useState, useEffect, useCallback, useRef } from "react";
+import { useNavigate } from "react-router-dom";
+import { useParticipant } from "../context/ParticipantContext";
+import { useSocket } from "../hooks/useSocket";
+import { useTimer } from "../hooks/useTimer";
+import QuestionCard from "../components/QuestionCard";
+import Timer from "../components/Timer";
 
 const Phase1 = () => {
   const { participant, updateParticipant } = useParticipant();
   const navigate = useNavigate();
-  const { socket, isConnected } = useSocket('/phase1');
+  const { socket, isConnected } = useSocket("/phase1");
 
   // ── State ──
-  const [status, setStatus] = useState('loading');   // loading | waiting | active | submitted | error
-  const [questions, setQuestions] = useState([]);     // [{ questionId, text, options: [{id,text}] }]
+  const [status, setStatus] = useState("loading"); // loading | waiting | active | submitted | error
+  const [questions, setQuestions] = useState([]); // [{ questionId, text, options: [{id,text}] }]
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [answers, setAnswers] = useState({});         // { questionId: optionId }
+  const [answers, setAnswers] = useState({}); // { questionId: optionId }
   const [confirmedSet, setConfirmedSet] = useState(new Set()); // Set of confirmed questionIds
   const [score, setScore] = useState(null);
   const [total, setTotal] = useState(null);
@@ -27,13 +27,15 @@ const Phase1 = () => {
   // 15 minutes = 900 seconds
   const MAX_PHASE1_TIME = 900;
 
-  const { secondsLeft, isActive: timerActive, startTimer, stopTimer } = useTimer(
-    MAX_PHASE1_TIME, 
-    () => {
-      // Auto submit when timer expires — submit whatever is confirmed
-      handleTimerExpiry();
-    }
-  );
+  const {
+    secondsLeft,
+    isActive: timerActive,
+    startTimer,
+    stopTimer,
+  } = useTimer(MAX_PHASE1_TIME, () => {
+    // Auto submit when timer expires — submit whatever is confirmed
+    handleTimerExpiry();
+  });
 
   // ── Auto-submit on timer expiry ──
   const handleTimerExpiry = useCallback(() => {
@@ -44,7 +46,7 @@ const Phase1 = () => {
 
     // If the last question has an answer selected, submit it
     if (answers[lastQId] !== undefined) {
-      socket.emit('phase1:submit', {
+      socket.emit("phase1:submit", {
         questionId: lastQId,
         selectedOptionId: answers[lastQId],
       });
@@ -54,53 +56,26 @@ const Phase1 = () => {
 
   // ── Join the phase1 namespace when socket connects ──
   useEffect(() => {
-    if (!socket || !isConnected || !participant?.usn || joinedRef.current) return;
+    if (!socket || !isConnected || !participant?.usn || joinedRef.current)
+      return;
 
     joinedRef.current = true;
 
-    socket.emit('phase1:join', { usn: participant.usn }, (res) => {
+    socket.emit("phase1:rejoin", { usn: participant.usn }, (res) => {
       if (!res?.ok) {
-        setError(res?.error || 'Failed to join Phase 1');
-        setStatus('error');
-        return;
-      }
-
-      // Already submitted (page refresh after submit)
-      if (res.alreadySubmitted) {
-        setScore(res.score);
-        updateParticipant({ phase1Submitted: true, phase1Score: res.score });
-        setStatus('submitted');
-        return;
-      }
-
-      // Reconnect — restore state
-      if (res.reconnected && res.questions) {
-        setQuestions(res.questions);
-
-        // Restore confirmed answers
-        const restored = new Set();
-        const restoredAnswers = {};
-        if (res.confirmedAnswers) {
-          for (const [qId, optId] of Object.entries(res.confirmedAnswers)) {
-            restored.add(qId);
-            restoredAnswers[qId] = optId;
-          }
-        }
-        setConfirmedSet(restored);
-        setAnswers(restoredAnswers);
-
-        if (res.submitted) {
-          setScore(res.score);
-          setStatus('submitted');
+        if (res?.status === "not_started") {
+          setStatus("waiting");
+        } else if (res?.status === "unauthorized") {
+          setError("You are not authorized for this Phase 1 round.");
+          setStatus("error");
         } else {
-          setStatus('active');
-          startTimer();
+          setError(res?.error || "Failed to join Phase 1");
+          setStatus("error");
         }
         return;
       }
 
-      // Fresh join — wait for admin to start
-      setStatus('waiting');
+      // Question payload arrives through phase1:questions after successful rejoin.
     });
   }, [socket, isConnected, participant?.usn]);
 
@@ -115,12 +90,35 @@ const Phase1 = () => {
       setConfirmedSet(new Set());
       setScore(null);
       setSubmitError(null);
-      setStatus('active');
+      setStatus("active");
       startTimer();
     };
 
-    socket.on('phase1:questions', handleQuestions);
-    return () => socket.off('phase1:questions', handleQuestions);
+    const handleStarted = () => {
+      if (!participant?.usn) return;
+      socket.emit("phase1:rejoin", { usn: participant.usn });
+    };
+
+    const handleNotStarted = () => {
+      setStatus("waiting");
+    };
+
+    const handleUnauthorized = () => {
+      setError("You are not authorized for this Phase 1 round.");
+      setStatus("error");
+    };
+
+    socket.on("phase1:questions", handleQuestions);
+    socket.on("phase1:started", handleStarted);
+    socket.on("phase1:not_started", handleNotStarted);
+    socket.on("phase1:unauthorized", handleUnauthorized);
+
+    return () => {
+      socket.off("phase1:questions", handleQuestions);
+      socket.off("phase1:started", handleStarted);
+      socket.off("phase1:not_started", handleNotStarted);
+      socket.off("phase1:unauthorized", handleUnauthorized);
+    };
   }, [socket, startTimer]);
 
   // ── Listen for answer confirmed ──
@@ -131,8 +129,8 @@ const Phase1 = () => {
       setConfirmedSet((prev) => new Set(prev).add(questionId));
     };
 
-    socket.on('phase1:answer_confirmed', handleConfirmed);
-    return () => socket.off('phase1:answer_confirmed', handleConfirmed);
+    socket.on("phase1:answer_confirmed", handleConfirmed);
+    return () => socket.off("phase1:answer_confirmed", handleConfirmed);
   }, [socket]);
 
   // ── Listen for result ──
@@ -144,11 +142,11 @@ const Phase1 = () => {
       setScore(s);
       setTotal(t);
       updateParticipant({ phase1Submitted: true, phase1Score: s });
-      setStatus('submitted');
+      setStatus("submitted");
     };
 
-    socket.on('phase1:result', handleResult);
-    return () => socket.off('phase1:result', handleResult);
+    socket.on("phase1:result", handleResult);
+    return () => socket.off("phase1:result", handleResult);
   }, [socket, stopTimer, updateParticipant]);
 
   // ── Listen for submit error ──
@@ -156,12 +154,55 @@ const Phase1 = () => {
     if (!socket) return;
 
     const handleSubmitError = ({ message, missingQuestions }) => {
-      setSubmitError(`${message}. ${missingQuestions?.length || 0} question(s) still need to be confirmed.`);
+      setSubmitError(
+        `${message}. ${missingQuestions?.length || 0} question(s) still need to be confirmed.`,
+      );
     };
 
-    socket.on('phase1:submit_error', handleSubmitError);
-    return () => socket.off('phase1:submit_error', handleSubmitError);
+    socket.on("phase1:submit_error", handleSubmitError);
+    return () => socket.off("phase1:submit_error", handleSubmitError);
   }, [socket]);
+
+  // ── Route participant when admin ends Phase 1 ──
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleQualified = ({ rank, score, name, usn }) => {
+      stopTimer();
+      updateParticipant({
+        name,
+        usn,
+        phase1Score: score,
+        phase1Rank: rank,
+        phase1Qualified: true,
+        phase2Active: true,
+        phase2Eliminated: false,
+      });
+      navigate("/phase2", { replace: true });
+    };
+
+    const handleEliminated = ({ rank, score, name, usn }) => {
+      stopTimer();
+      updateParticipant({
+        name,
+        usn,
+        phase1Score: score,
+        phase1Rank: rank,
+        phase1Qualified: false,
+        phase2Active: false,
+        phase2Eliminated: true,
+      });
+      navigate("/eliminated", { replace: true });
+    };
+
+    socket.on("phase1:qualified", handleQualified);
+    socket.on("phase1:eliminated", handleEliminated);
+
+    return () => {
+      socket.off("phase1:qualified", handleQualified);
+      socket.off("phase1:eliminated", handleEliminated);
+    };
+  }, [socket, navigate, updateParticipant, stopTimer]);
 
   // ── Handlers ──
   const currentQuestion = questions[currentIndex];
@@ -169,11 +210,13 @@ const Phase1 = () => {
   const isFirstQuestion = currentIndex === 0;
   const currentQId = currentQuestion?.questionId;
   const isCurrentConfirmed = currentQId ? confirmedSet.has(currentQId) : false;
-  const currentAnswer = currentQId !== undefined ? answers[currentQId] : undefined;
+  const currentAnswer =
+    currentQId !== undefined ? answers[currentQId] : undefined;
   const hasSelectedOption = currentAnswer !== undefined;
 
   // All questions except the last must be confirmed for submit to be enabled
-  const allPriorConfirmed = questions.length > 0 &&
+  const allPriorConfirmed =
+    questions.length > 0 &&
     questions.slice(0, -1).every((q) => confirmedSet.has(q.questionId));
 
   const handleSelectOption = (optionId) => {
@@ -197,34 +240,45 @@ const Phase1 = () => {
   };
 
   const handleConfirmAnswer = () => {
-    if (!socket || !currentQId || !hasSelectedOption || isCurrentConfirmed) return;
+    if (!socket || !currentQId || !hasSelectedOption || isCurrentConfirmed)
+      return;
 
-    socket.emit('phase1:confirm_answer', {
-      questionId: currentQId,
-      selectedOptionId: currentAnswer,
-    }, (res) => {
-      if (res && !res.ok) {
-        setSubmitError(res.error || 'Failed to confirm answer');
-      }
-    });
+    socket.emit(
+      "phase1:confirm_answer",
+      {
+        questionId: currentQId,
+        selectedOptionId: currentAnswer,
+      },
+      (res) => {
+        if (res && !res.ok) {
+          setSubmitError(res.error || "Failed to confirm answer");
+        }
+      },
+    );
   };
 
   const handleSubmit = () => {
     if (!socket || !currentQId || !hasSelectedOption) return;
 
     if (!allPriorConfirmed) {
-      setSubmitError('You must confirm all previous questions before submitting.');
+      setSubmitError(
+        "You must confirm all previous questions before submitting.",
+      );
       return;
     }
 
-    socket.emit('phase1:submit', {
-      questionId: currentQId,
-      selectedOptionId: currentAnswer,
-    }, (res) => {
-      if (res && !res.ok) {
-        setSubmitError(res.error || 'Failed to submit');
-      }
-    });
+    socket.emit(
+      "phase1:submit",
+      {
+        questionId: currentQId,
+        selectedOptionId: currentAnswer,
+      },
+      (res) => {
+        if (res && !res.ok) {
+          setSubmitError(res.error || "Failed to submit");
+        }
+      },
+    );
   };
 
   // ── Question navigation dots ──
@@ -239,16 +293,21 @@ const Phase1 = () => {
         return (
           <button
             key={qId}
-            onClick={() => { setCurrentIndex(i); setSubmitError(null); }}
+            onClick={() => {
+              setCurrentIndex(i);
+              setSubmitError(null);
+            }}
             className={`
               w-10 h-10 rounded-lg font-bold text-sm transition-all duration-200 border-2
-              ${isCurrent
-                ? 'bg-clash-gold text-clash-dark border-yellow-600 scale-110 shadow-lg'
-                : isConfirmed
-                  ? 'bg-clash-green/80 text-white border-green-700'
-                  : hasAnswer
-                    ? 'bg-clash-elixir/60 text-white border-purple-700'
-                    : 'bg-clash-wood/50 text-gray-300 border-clash-wood hover:bg-clash-wood/80'}
+              ${
+                isCurrent
+                  ? "bg-clash-gold text-clash-dark border-yellow-600 scale-110 shadow-lg"
+                  : isConfirmed
+                    ? "bg-clash-green/80 text-white border-green-700"
+                    : hasAnswer
+                      ? "bg-clash-elixir/60 text-white border-purple-700"
+                      : "bg-clash-wood/50 text-gray-300 border-clash-wood hover:bg-clash-wood/80"
+              }
             `}
           >
             {i + 1}
@@ -260,59 +319,82 @@ const Phase1 = () => {
 
   // ── Render states ──
 
-  if (status === 'loading' || (status === 'loading' && !isConnected)) {
+  if (status === "loading" || (status === "loading" && !isConnected)) {
     return (
       <div className="flex flex-col justify-center items-center min-h-[80vh] space-y-4">
-        <div className="text-3xl font-clash text-clash-gold animate-pulse">Scouting Base...</div>
+        <div className="text-3xl font-clash text-clash-gold animate-pulse">
+          Scouting Base...
+        </div>
         <p className="text-gray-400">Connecting to server...</p>
       </div>
     );
   }
 
-  if (status === 'error') {
+  if (status === "error") {
     return (
       <div className="flex flex-col justify-center items-center min-h-[80vh] space-y-6 text-center">
-        <h2 className="text-4xl font-clash text-clash-red drop-shadow-md">Connection Lost</h2>
-        <p className="text-xl text-white max-w-md">{error || 'Failed to connect to the Village Server.'}</p>
+        <h2 className="text-4xl font-clash text-clash-red drop-shadow-md">
+          Connection Lost
+        </h2>
+        <p className="text-xl text-white max-w-md">
+          {error || "Failed to connect to the Village Server."}
+        </p>
         <div className="w-12 h-12 border-4 border-t-clash-red border-r-transparent border-b-transparent border-l-transparent rounded-full animate-spin mt-4"></div>
         <p className="text-gray-400">Retrying connection...</p>
       </div>
     );
   }
 
-  if (status === 'waiting') {
+  if (status === "waiting") {
     return (
       <div className="flex flex-col items-center justify-center min-h-[80vh] text-center space-y-6">
         <h2 className="text-4xl font-clash text-clash-gold">Village Camp</h2>
         <p className="text-xl text-white">The Clan War has not started yet.</p>
-        <p className="text-gray-400">Questions will appear here once the Chief starts the battle.</p>
+        <p className="text-gray-400">
+          Questions will appear here once the Chief starts the battle.
+        </p>
         <div className="w-16 h-16 border-4 border-t-clash-gold border-r-clash-gold border-b-transparent border-l-transparent rounded-full animate-spin mt-8"></div>
       </div>
     );
   }
 
-  if (status === 'submitted') {
+  if (status === "submitted") {
     const isQualifying = participant?.phase1Qualified;
 
     return (
       <div className="flex flex-col items-center justify-center min-h-[80vh]">
         <div className="card-clash max-w-lg w-full text-center space-y-6">
-          <h2 className="text-4xl font-clash text-clash-gold">Attack Finished</h2>
+          <h2 className="text-4xl font-clash text-clash-gold">
+            Attack Finished
+          </h2>
           <p className="text-xl text-white">
-            Score: <span className="text-3xl font-bold font-clash ml-2 text-clash-elixir">{score}</span>
-            {total !== null && <span className="text-gray-400 text-lg ml-1">/ {total}</span>}
+            Score:{" "}
+            <span className="text-3xl font-bold font-clash ml-2 text-clash-elixir">
+              {score}
+            </span>
+            {total !== null && (
+              <span className="text-gray-400 text-lg ml-1">/ {total}</span>
+            )}
           </p>
           <div className="pt-6 border-t border-clash-wood">
-             {isQualifying ? (
-               <div className="space-y-4">
-                 <h3 className="text-2xl text-clash-green font-clash">You Qualified!</h3>
-                 <button onClick={() => navigate('/phase2/lobby')} className="btn-clash">
-                   Enter War Camp
-                 </button>
-               </div>
-             ) : (
-               <p className="text-gray-300">Wait for the Clan Chief (Admin) to end Phase 1 to see if you qualify for the duels.</p>
-             )}
+            {isQualifying ? (
+              <div className="space-y-4">
+                <h3 className="text-2xl text-clash-green font-clash">
+                  You Qualified!
+                </h3>
+                <button
+                  onClick={() => navigate("/phase2")}
+                  className="btn-clash"
+                >
+                  Enter War Camp
+                </button>
+              </div>
+            ) : (
+              <p className="text-gray-300">
+                Wait for the Clan Chief (Admin) to end Phase 1 to see if you
+                qualify for the duels.
+              </p>
+            )}
           </div>
         </div>
       </div>
@@ -376,9 +458,9 @@ const Phase1 = () => {
                 onClick={handleSubmit}
                 disabled={!hasSelectedOption || !allPriorConfirmed}
                 className={`btn-clash px-8 py-3 text-lg ${
-                  (!hasSelectedOption || !allPriorConfirmed)
-                    ? 'opacity-50 cursor-not-allowed'
-                    : 'bg-clash-green'
+                  !hasSelectedOption || !allPriorConfirmed
+                    ? "opacity-50 cursor-not-allowed"
+                    : "bg-clash-green"
                 }`}
               >
                 ⚔️ SUBMIT ATTACK
@@ -391,7 +473,9 @@ const Phase1 = () => {
                     onClick={handleConfirmAnswer}
                     disabled={!hasSelectedOption}
                     className={`btn-clash px-6 py-3 ${
-                      !hasSelectedOption ? 'opacity-50 cursor-not-allowed' : 'bg-clash-elixir'
+                      !hasSelectedOption
+                        ? "opacity-50 cursor-not-allowed"
+                        : "bg-clash-elixir"
                     }`}
                   >
                     🔒 Confirm Answer
@@ -413,7 +497,9 @@ const Phase1 = () => {
           {isLastQuestion && !allPriorConfirmed && (
             <p className="text-center text-gray-400 mt-3 text-sm">
               Confirm all previous questions before submitting.
-              <span className="text-clash-gold ml-1">{questions.length - 1 - confirmedSet.size} remaining</span>
+              <span className="text-clash-gold ml-1">
+                {questions.length - 1 - confirmedSet.size} remaining
+              </span>
             </p>
           )}
         </div>

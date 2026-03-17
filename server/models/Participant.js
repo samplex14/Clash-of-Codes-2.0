@@ -27,11 +27,14 @@ const participantSchema = new mongoose.Schema({
   phase1Score: { type: Number, default: 0 },
   phase1Time: { type: Number, default: 0 },
   phase1Submitted: { type: Boolean, default: false },
+  submittedAt: { type: Date, default: null },
   phase1Qualified: { type: Boolean, default: false },
 
   // Phase 2
   phase2Active: { type: Boolean, default: false },
   phase2Eliminated: { type: Boolean, default: false },
+  phase2Wins: { type: Number, default: 0 },
+  phase2TotalScore: { type: Number, default: 0 },
 
   // Phase 3
   phase3Qualified: { type: Boolean, default: false },
@@ -43,7 +46,14 @@ const participantSchema = new mongoose.Schema({
 participantSchema.index({ track: 1 });
 
 // Supports top-N leaderboard queries by track and tie-break time.
-participantSchema.index({ track: 1, phase1Score: -1, phase1Time: 1 });
+participantSchema.index({ track: 1, phase1Score: -1, submittedAt: 1 });
+
+// Supports global ranking with score and submission-time tie-break.
+participantSchema.index({
+  phase1Submitted: 1,
+  phase1Score: -1,
+  submittedAt: 1,
+});
 
 // Supports admin qualified list sorted by score/time within each track.
 participantSchema.index({
@@ -52,6 +62,8 @@ participantSchema.index({
   phase1Score: -1,
   phase1Time: 1,
 });
+
+participantSchema.index({ phase2Wins: -1, phase2TotalScore: -1, phase1Score: -1 });
 
 // Auto-assign track from year
 participantSchema.pre("save", function (next) {

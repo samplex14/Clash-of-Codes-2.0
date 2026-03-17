@@ -1,88 +1,99 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useParticipant } from '../context/ParticipantContext';
-import api from '../utils/api';
+import React, { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { useParticipant } from "../context/ParticipantContext";
+import { useSocket } from "../hooks/useSocket";
 
 const Phase2Lobby = () => {
-  const { participant } = useParticipant();
+  const { participant, updateParticipant } = useParticipant();
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const { socket } = useSocket("/phase1");
 
   useEffect(() => {
-    // If user is eliminated or not active, they shouldn't even be here, but let's check
-    if (!participant?.phase2Active && !participant?.phase1Qualified) {
-      setError("You are not qualified for Phase 2.");
-      setLoading(false);
+    if (!participant) {
+      navigate("/register", { replace: true });
       return;
     }
 
-    if (participant?.phase2Eliminated) {
-       setError("You have been eliminated from the tournament.");
-       setLoading(false);
-       return;
+    if (!participant.phase1Qualified || participant.phase2Eliminated) {
+      navigate("/eliminated", { replace: true });
+      return;
     }
-
-    const checkCurrentMatch = async () => {
-      try {
-        // Here we could have a specific endpoint to find the current active match for a user
-        // But let's assume we can fetch all matches and filter, or we have a dedicated endpoint
-        // Wait, the backend currently accepts GET /api/matches/:matchId.
-        // And for a user to know their match, we really need a new endpoint `GET /api/matches/current`.
-        // The instructions from previous conversation summarize "Implement Match Recovery Endpoint" -> `GET /api/matches/current`.
-        // So we will call it here.
-        const res = await api.get('/matches/current', { params: { usn: participant.usn } });
-        
-        if (res.data && res.data.match) {
-          // Found an active match, store match details and redirect
-          localStorage.setItem('currentMatchId', res.data.match._id);
-          navigate('/phase2/duel');
-        } else {
-          // No match assigned yet, wait
-          setLoading(false);
-        }
-      } catch (err) {
-        if (err.response?.status !== 404) {
-          console.error('Failed to check match status', err);
-        }
-        setLoading(false);
-      }
-    };
-
-    checkCurrentMatch();
-
-    // Poll every 5 seconds for a new match
-    const interval = setInterval(checkCurrentMatch, 5000);
-    return () => clearInterval(interval);
-
   }, [participant, navigate]);
 
-  if (error) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[80vh]">
-        <div className="card-clash max-w-lg w-full text-center">
-          <h2 className="text-3xl font-clash text-clash-red mb-6 border-b-2 border-clash-wood pb-4">Tournament Over</h2>
-          <p className="text-xl text-white font-medium">{error}</p>
-          <p className="mt-4 text-gray-400">Better luck next time, Chief!</p>
-        </div>
-      </div>
-    );
-  }
+  useEffect(() => {
+    if (!socket || !participant?.usn) return;
+
+    socket.emit("phase2:check_access", { usn: participant.usn }, (res) => {
+      if (!res?.ok || !res?.qualified) {
+        navigate("/eliminated", { replace: true });
+      }
+    });
+
+    socket.emit("phase2:rejoin", { usn: participant.usn });
+
+    const handleMatchStart = (payload) => {
+      localStorage.setItem("phase2ActiveMatch", JSON.stringify(payload));
+      navigate("/phase2/duel", { replace: true });
+    };
+
+    const handleMatchResume = (payload) => {
+      localStorage.setItem("phase2ActiveMatch", JSON.stringify(payload));
+      navigate("/phase2/duel", { replace: true });
+    };
+
+    const handleAdvancedFinals = () => {
+      updateParticipant({ phase3Qualified: true, phase2Active: false });
+    };
+
+    socket.on("phase2:match_start", handleMatchStart);
+    socket.on("phase2:match_resume", handleMatchResume);
+    socket.on("phase2:advanced_finals", handleAdvancedFinals);
+
+    return () => {
+      socket.off("phase2:match_start", handleMatchStart);
+      socket.off("phase2:match_resume", handleMatchResume);
+      socket.off("phase2:advanced_finals", handleAdvancedFinals);
+    };
+  }, [socket, participant?.usn, navigate, updateParticipant]);
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[80vh]">
-      <div className="text-center space-y-8 animate-fade-in flex flex-col items-center">
-        <h2 className="text-4xl md:text-5xl font-clash text-clash-gold drop-shadow-md">War Camp</h2>
-        <p className="text-xl text-white">Wait here while the elders find you a worthy opponent.</p>
+      <div className="card-clash max-w-2xl w-full text-center space-y-6 animate-fade-in">
+        <h2 className="text-4xl md:text-5xl font-clash text-clash-gold drop-shadow-md">
+          Phase 2 Waiting Hall
+        </h2>
+        <p className="text-xl text-white">
+          {participant?.phase3Qualified
+            ? "You have advanced to the Grand Finals, please wait for further instructions."
+            : "You are in Phase 2. Please wait while the next duel is prepared."}
+        </p>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-left">
+          <div className="bg-clash-woodlight border-2 border-clash-wood rounded-lg p-4">
+            <p className="text-gray-300 text-sm">Name</p>
+            <p className="text-white font-bold">{participant?.name || "-"}</p>
+          </div>
+          <div className="bg-clash-woodlight border-2 border-clash-wood rounded-lg p-4">
+            <p className="text-gray-300 text-sm">USN</p>
+            <p className="text-white font-bold">{participant?.usn || "-"}</p>
+          </div>
+          <div className="bg-clash-woodlight border-2 border-clash-wood rounded-lg p-4">
+            <p className="text-gray-300 text-sm">Phase 1 Rank</p>
+            <p className="text-white font-bold">
+              {participant?.phase1Rank ? `#${participant.phase1Rank}` : "-"}
+            </p>
+          </div>
+        </div>
 
         <div className="relative w-24 h-24 my-12">
-           {/* Simple spinning sword/shield animation placeholder */}
-           <div className="absolute inset-0 border-4 border-t-clash-gold border-r-clash-elixir border-b-clash-gold border-l-clash-elixir rounded-full animate-spin"></div>
-           <div className="absolute inset-2 border-4 border-t-clash-wood border-b-clash-wood border-l-transparent border-r-transparent rounded-full animate-spin-slow"></div>
+          <div className="absolute inset-0 border-4 border-t-clash-gold border-r-clash-elixir border-b-clash-gold border-l-clash-elixir rounded-full animate-spin"></div>
+          <div className="absolute inset-2 border-4 border-t-clash-wood border-b-clash-wood border-l-transparent border-r-transparent rounded-full animate-spin-slow"></div>
         </div>
 
         <div className="bg-clash-woodlight border-2 border-clash-wood rounded-lg p-4 px-8 shadow-sm">
-          <p className="text-white font-bold tracking-widest uppercase">MATCHMAKING IN PROGRESS...</p>
+          <p className="text-white font-bold tracking-widest uppercase">
+            WAITING FOR PHASE 2 START
+          </p>
         </div>
       </div>
     </div>

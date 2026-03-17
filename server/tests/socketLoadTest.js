@@ -258,5 +258,12 @@ async function main() {
 
 main().catch((err) => {
   console.error("Load test failed:", err.message);
-  process.exit(1);
+  if (err.message.includes("No matches found for load test")) {
+    console.error(
+      "Hint: create Phase 2 matches first via POST /api/admin/phase2/matchmake (with x-admin-token)",
+    );
+  }
+
+  // Prefer setting exitCode over immediate process.exit on Windows terminals.
+  process.exitCode = 1;
 });

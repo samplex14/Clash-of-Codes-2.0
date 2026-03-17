@@ -1,239 +1,260 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useParticipant } from '../context/ParticipantContext';
-import { useSocket } from '../hooks/useSocket';
-import { useTimer } from '../hooks/useTimer';
-import QuestionCard from '../components/QuestionCard';
-import Timer from '../components/Timer';
+import React, { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { useParticipant } from "../context/ParticipantContext";
+import { useSocket } from "../hooks/useSocket";
+import QuestionCard from "../components/QuestionCard";
 
 const Phase2Duel = () => {
-  const { participant } = useParticipant();
+  const { participant, updateParticipant } = useParticipant();
   const navigate = useNavigate();
-  const matchId = localStorage.getItem('currentMatchId');
-  const { socket, isConnected } = useSocket('/duel');
+  const { socket, isConnected } = useSocket("/phase1");
 
-  const [status, setStatus] = useState('joining'); // joining, waiting, active, finished
+  const [matchId, setMatchId] = useState(null);
+  const [matchRound, setMatchRound] = useState(null);
   const [opponent, setOpponent] = useState(null);
-  const [opponentAnswers, setOpponentAnswers] = useState(0);
-  
   const [questions, setQuestions] = useState([]);
-  const [answers, setAnswers] = useState([]);
-  const [result, setResult] = useState(null); // { winner, p1score, p2score, reason }
-  
-  const [duelDuration, setDuelDuration] = useState(90);
+  const [answers, setAnswers] = useState({});
+  const [confirmedSet, setConfirmedSet] = useState(new Set());
+  const [submitError, setSubmitError] = useState(null);
+  const [waitingForOpponent, setWaitingForOpponent] = useState(false);
 
-  const { secondsLeft, startTimer, stopTimer, resetTimer } = useTimer(
-    duelDuration,
-    () => { } // Timer expiry handled by server auto-submit
-  );
+  const currentQuestionIndex = useMemo(() => {
+    if (!questions.length) return 0;
+    return Math.min(
+      questions.length - 1,
+      Array.from({ length: questions.length }).findIndex(
+        (_, idx) => answers[questions[idx].questionId] === undefined,
+      ) === -1
+        ? questions.length - 1
+        : Array.from({ length: questions.length }).findIndex(
+            (_, idx) => answers[questions[idx].questionId] === undefined,
+          ),
+    );
+  }, [questions, answers]);
+
+  const currentQuestion = questions[currentQuestionIndex];
+  const currentQId = currentQuestion?.questionId;
+  const currentAnswer = currentQId ? answers[currentQId] : undefined;
+  const isCurrentConfirmed = currentQId ? confirmedSet.has(currentQId) : false;
+  const isLastQuestion = currentQuestionIndex === questions.length - 1;
+
+  const applyMatchPayload = (payload) => {
+    setMatchId(payload.matchId);
+    setMatchRound(payload.matchRound);
+    setOpponent(payload.opponent || null);
+    setQuestions(Array.isArray(payload.questions) ? payload.questions : []);
+
+    const restoredAnswers = payload.confirmedAnswers || {};
+    setAnswers(restoredAnswers);
+    setConfirmedSet(new Set(Object.keys(restoredAnswers)));
+    setSubmitError(null);
+    setWaitingForOpponent(Boolean(payload.submitted));
+  };
 
   useEffect(() => {
-    if (!matchId) {
-      navigate('/phase2/lobby');
+    if (!participant?.usn) {
+      navigate("/register", { replace: true });
       return;
     }
 
-    if (isConnected && socket) {
-      socket.emit('join_room', { matchId, usn: participant.usn });
-
-      socket.on('room_joined', (data) => {
-        setOpponent(data.opponent);
-        setStatus('waiting');
-      });
-
-      socket.on('duel_start', (data) => {
-        setQuestions(data.questions);
-        setAnswers(new Array(data.questions.length).fill(-1));
-        setDuelDuration(data.durationSeconds);
-        resetTimer(data.durationSeconds);
-        setStatus('active');
-        startTimer();
-      });
-
-      socket.on('opponent_progress', (data) => {
-        setOpponentAnswers(data.answered);
-      });
-
-      socket.on('duel_end', (data) => {
-        stopTimer();
-        setResult(data);
-        setStatus('finished');
-        localStorage.removeItem('currentMatchId');
-      });
-
-      socket.on('error', (err) => {
-        console.error('Socket error:', err);
-        // If match not found or not in match, go back to lobby
-        if (err.message.includes('not in this match') || err.message.includes('not found')) {
-            localStorage.removeItem('currentMatchId');
-            navigate('/phase2/lobby');
-        }
-      });
+    const cached = localStorage.getItem("phase2ActiveMatch");
+    if (cached) {
+      try {
+        applyMatchPayload(JSON.parse(cached));
+      } catch {
+        localStorage.removeItem("phase2ActiveMatch");
+      }
     }
+  }, [participant?.usn, navigate]);
+
+  useEffect(() => {
+    if (!socket || !participant?.usn || !isConnected) return;
+
+    socket.emit("phase2:rejoin", { usn: participant.usn });
+
+    const handleMatchStart = (payload) => {
+      localStorage.setItem("phase2ActiveMatch", JSON.stringify(payload));
+      applyMatchPayload(payload);
+    };
+
+    const handleMatchResume = (payload) => {
+      localStorage.setItem("phase2ActiveMatch", JSON.stringify(payload));
+      applyMatchPayload(payload);
+    };
+
+    const handleAnswerConfirmed = ({ questionId }) => {
+      setConfirmedSet((prev) => new Set(prev).add(questionId));
+    };
+
+    const handleWaiting = () => {
+      setWaitingForOpponent(true);
+    };
+
+    const handleResult = (payload) => {
+      localStorage.removeItem("phase2ActiveMatch");
+
+      if (payload.result === "eliminated") {
+        updateParticipant({ phase2Eliminated: true, phase2Active: false });
+        navigate("/eliminated", { replace: true });
+        return;
+      }
+
+      updateParticipant({ phase2Active: true, phase2Eliminated: false });
+      navigate("/phase2/waiting", { replace: true });
+    };
+
+    const handleAdvancedFinals = () => {
+      localStorage.removeItem("phase2ActiveMatch");
+      updateParticipant({ phase3Qualified: true, phase2Active: false });
+      navigate("/phase2/waiting", { replace: true });
+    };
+
+    socket.on("phase2:match_start", handleMatchStart);
+    socket.on("phase2:match_resume", handleMatchResume);
+    socket.on("phase2:answer_confirmed", handleAnswerConfirmed);
+    socket.on("phase2:waiting_for_opponent", handleWaiting);
+    socket.on("phase2:result", handleResult);
+    socket.on("phase2:advanced_finals", handleAdvancedFinals);
 
     return () => {
-      if (socket) {
-        socket.off('room_joined');
-        socket.off('duel_start');
-        socket.off('opponent_progress');
-        socket.off('duel_end');
-        socket.off('error');
-      }
+      socket.off("phase2:match_start", handleMatchStart);
+      socket.off("phase2:match_resume", handleMatchResume);
+      socket.off("phase2:answer_confirmed", handleAnswerConfirmed);
+      socket.off("phase2:waiting_for_opponent", handleWaiting);
+      socket.off("phase2:result", handleResult);
+      socket.off("phase2:advanced_finals", handleAdvancedFinals);
     };
-  }, [isConnected, socket, matchId, participant.usn, navigate]);
+  }, [socket, participant?.usn, isConnected, navigate, updateParticipant]);
 
-  const handleReady = () => {
-    socket.emit('ready', { matchId, usn: participant.usn });
+  const handleSelectOption = (optionId) => {
+    if (!currentQId || isCurrentConfirmed || waitingForOpponent) return;
+    setAnswers((prev) => ({ ...prev, [currentQId]: optionId }));
+    setSubmitError(null);
   };
 
-  const submitAnswer = (qIndex, optIndex) => {
-    if (answers[qIndex] !== -1) return; // Already answered
+  const handleConfirm = () => {
+    if (!socket || !matchId || !currentQId || currentAnswer === undefined)
+      return;
 
-    const newAnswers = [...answers];
-    newAnswers[qIndex] = optIndex;
-    setAnswers(newAnswers);
-
-    socket.emit('submit_answer', {
-      matchId,
-      usn: participant.usn,
-      questionIndex: qIndex,
-      answerIndex: optIndex,
-      timestamp: Date.now()
-    });
+    socket.emit(
+      "phase2:confirm_answer",
+      {
+        matchId,
+        questionId: currentQId,
+        selectedOptionId: currentAnswer,
+      },
+      (res) => {
+        if (!res?.ok) {
+          setSubmitError(res?.error || "Failed to confirm answer");
+        }
+      },
+    );
   };
 
-  if (status === 'joining') {
+  const allPriorConfirmed =
+    questions.length > 0 &&
+    questions.slice(0, -1).every((q) => confirmedSet.has(q.questionId));
+
+  const handleSubmit = () => {
+    if (!socket || !matchId || !currentQId || currentAnswer === undefined)
+      return;
+
+    if (!allPriorConfirmed) {
+      setSubmitError("Confirm all previous questions before submit.");
+      return;
+    }
+
+    socket.emit(
+      "phase2:submit",
+      {
+        matchId,
+        questionId: currentQId,
+        selectedOptionId: currentAnswer,
+      },
+      (res) => {
+        if (!res?.ok) {
+          setSubmitError(res?.error || "Failed to submit answers");
+        } else {
+          setWaitingForOpponent(true);
+        }
+      },
+    );
+  };
+
+  if (!matchId || !questions.length) {
     return (
-      <div className="flex items-center justify-center min-h-[80vh]">
-         <div className="text-2xl font-clash text-clash-gold animate-pulse">Entering Arena...</div>
+      <div className="flex flex-col items-center justify-center min-h-[80vh] text-center space-y-4">
+        <h2 className="text-4xl font-clash text-clash-gold">Preparing Duel</h2>
+        <p className="text-white">Waiting for your match assignment...</p>
       </div>
     );
   }
 
-  if (status === 'waiting') {
+  if (waitingForOpponent) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[80vh]">
-        <div className="card-clash max-w-xl w-full text-center space-y-8">
-          <h2 className="text-4xl font-clash text-clash-gold">Duel Arena</h2>
-          
-          <div className="flex justify-between items-center py-8">
-            <div className="flex flex-col items-center">
-              <div className="w-16 h-16 bg-clash-green rounded-full flex items-center justify-center border-4 border-[#166534] shadow-md mb-2">
-                 <span className="font-clash text-2xl text-white">YOU</span>
-              </div>
-              <span className="text-white font-bold">{participant.name}</span>
-            </div>
-            
-            <div className="text-3xl font-clash text-clash-red px-6">VS</div>
-            
-            <div className="flex flex-col items-center">
-              <div className="w-16 h-16 bg-clash-red rounded-full flex items-center justify-center border-4 border-[#881337] shadow-md mb-2">
-                 <span className="font-clash text-2xl text-white">OPP</span>
-              </div>
-              <span className="text-white font-bold">{opponent?.name || 'Opponent'}</span>
-            </div>
-          </div>
-          
-          <button onClick={handleReady} className="btn-clash px-12 py-4 w-full text-2xl">
-            I AM READY
-          </button>
-          
-          <p className="text-gray-300 font-medium">Duel will start when both players are ready.</p>
-        </div>
+      <div className="flex flex-col items-center justify-center min-h-[80vh] text-center space-y-4">
+        <h2 className="text-4xl font-clash text-clash-gold">Match Submitted</h2>
+        <p className="text-white">
+          Your opponent is still answering, please wait.
+        </p>
       </div>
     );
   }
 
-  if (status === 'finished') {
-    // Winner is participant if winner object matches participant ID (or if backend sent string/object)
-    const isWinner = result.winner && (result.winner._id === participant._id || result.winner === participant._id);
-    
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[80vh]">
-        <div className={`card-clash max-w-lg w-full text-center border-t-8 ${isWinner ? 'border-t-clash-gold' : 'border-t-gray-500'}`}>
-           <h2 className="text-5xl font-clash mb-2 text-white drop-shadow-md">
-             {isWinner ? 'VICTORY' : 'DEFEAT'}
-           </h2>
-           
-           {result.reason === 'disconnect_forfeit' && (
-             <p className="text-clash-gold font-bold mb-4 uppercase tracking-wider text-sm">Opponent Fled the Battle</p>
-           )}
-
-           <div className="flex justify-center gap-12 my-8 border-y-2 border-clash-wood py-6">
-             <div className="text-center">
-               <p className="text-gray-300 font-bold uppercase mb-1">{participant.name}</p>
-               <p className="text-4xl font-clash text-clash-green">{/* Need to know which score is ours */}</p>
-                <p className="text-sm text-gray-400 mt-2">Your Score</p>
-             </div>
-             
-             <div className="text-center">
-               <p className="text-gray-300 font-bold uppercase mb-1">{opponent?.name}</p>
-               <p className="text-4xl font-clash text-clash-red">{/* Need to know which score is opponent */}</p>
-                <p className="text-sm text-gray-400 mt-2">Opponent Score</p>
-             </div>
-           </div>
-           
-           <button onClick={() => navigate('/phase2/lobby')} className="btn-clash mt-4">
-             Return to Camp
-           </button>
-        </div>
-      </div>
-    );
-  }
-
-  // Active state
   return (
-    <div className="max-w-4xl mx-auto pb-24">
-      {/* Sticky Dual Header */}
-      <div className="sticky top-0 z-50 bg-clash-dark/95 border-b-4 border-clash-wood p-4 mb-8 grid grid-cols-3 items-center shadow-lg backdrop-blur-sm">
-        
-        {/* Your Progress */}
-        <div className="flex flex-col text-left">
-           <span className="text-gray-400 text-xs font-bold tracking-widest uppercase mb-1">Your Progress</span>
-           <div className="flex items-center gap-2">
-             <div className="w-full bg-[#3b2414] rounded-full h-3 border border-clash-wood">
-                <div 
-                  className="bg-clash-green h-full rounded-full transition-all duration-300" 
-                  style={{ width: `${(answers.filter(a => a !== -1).length / questions.length) * 100}%` }}
-                ></div>
-             </div>
-             <span className="font-clash text-white">{answers.filter(a => a !== -1).length}/{questions.length}</span>
-           </div>
-        </div>
-        
-        {/* Central Timer */}
-        <div className="flex justify-center">
-           <Timer secondsLeft={secondsLeft} maxSeconds={duelDuration} />
-        </div>
-        
-        {/* Opponent Progress */}
-        <div className="flex flex-col text-right">
-           <span className="text-gray-400 text-xs font-bold tracking-widest uppercase mb-1">{opponent?.name}</span>
-           <div className="flex items-center gap-2 justify-end">
-             <span className="font-clash text-white">{opponentAnswers}/{questions.length}</span>
-             <div className="w-full bg-[#3b2414] rounded-full h-3 border border-clash-wood transform rotate-180">
-                <div 
-                  className="bg-clash-red h-full rounded-full transition-all duration-300" 
-                  style={{ width: `${(opponentAnswers / questions.length) * 100}%` }}
-                ></div>
-             </div>
-           </div>
-        </div>
-
+    <div className="max-w-4xl mx-auto pb-24 space-y-6">
+      <div className="card-clash">
+        <h2 className="text-3xl font-clash text-clash-gold">Phase 2 Duel</h2>
+        <p className="text-gray-300 mt-2">
+          Round {matchRound} | Match {matchId}
+        </p>
+        <p className="text-white mt-1">
+          Opponent: {opponent?.name || "Opponent"} ({opponent?.usn || "-"})
+        </p>
       </div>
 
-      {/* Questions List */}
-      <div className="space-y-8 px-2 md:px-0">
-        {questions.map((q, i) => (
-          <QuestionCard 
-            key={q._id || i}
-            question={q}
-            index={i}
-            selectedOption={answers[i]}
-            onSelectOption={(optIndex) => submitAnswer(i, optIndex)}
-            disabled={answers[i] !== -1} // Cannot change answer in duel
-          />
-        ))}
+      <div className="card-clash">
+        <QuestionCard
+          question={currentQuestion}
+          index={currentQuestionIndex}
+          selectedOption={currentAnswer}
+          onSelectOption={handleSelectOption}
+          disabled={isCurrentConfirmed}
+          isLocked={isCurrentConfirmed}
+        />
+
+        {submitError && (
+          <div className="mt-4 bg-clash-red/20 border-2 border-clash-red text-white p-3 rounded text-center">
+            {submitError}
+          </div>
+        )}
+
+        <div className="flex flex-wrap gap-3 mt-6">
+          {!isLastQuestion ? (
+            <button
+              onClick={handleConfirm}
+              disabled={currentAnswer === undefined || isCurrentConfirmed}
+              className="btn-clash disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Confirm Answer
+            </button>
+          ) : (
+            <button
+              onClick={handleSubmit}
+              disabled={currentAnswer === undefined || !allPriorConfirmed}
+              className="btn-clash disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Submit
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div className="card-clash">
+        <h3 className="text-xl text-white mb-3">Progress</h3>
+        <p className="text-gray-300">
+          Confirmed: {confirmedSet.size} / {questions.length}
+        </p>
       </div>
     </div>
   );

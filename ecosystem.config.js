@@ -4,8 +4,9 @@ module.exports = {
       name: "clash-of-codes-server",
       script: "index.js",
       cwd: "./server",
-      instances: "max",
-      exec_mode: "cluster",
+      // No Redis adapter: keep a single process so Socket.IO room state stays consistent.
+      instances: 1,
+      exec_mode: "fork",
       watch: false,
       time: true,
       max_memory_restart: "512M",

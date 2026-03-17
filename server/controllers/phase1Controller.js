@@ -1,6 +1,10 @@
 const Phase1Session = require("../models/Phase1Session");
 const Participant = require("../models/Participant");
 const Question = require("../models/Question");
+const {
+  TOP_QUALIFIED_COUNT,
+  computePhase1Qualification,
+} = require("../utils/phase1Qualification");
 
 // POST /api/admin/phase1/start
 exports.startPhase1 = async (req, res) => {
@@ -33,29 +37,14 @@ exports.endPhase1 = async (req, res) => {
     session.endedAt = new Date();
     await session.save();
 
-    // Compute top 64 per track
-    for (const track of ["1st_year", "2nd_year"]) {
-      // Reset all qualifications for this track
-      await Participant.updateMany(
-        { track },
-        { phase1Qualified: false, phase2Active: false },
-      );
-
-      // Get top 64 by score desc, then time asc
-      const top64 = await Participant.find({ track, phase1Submitted: true })
-        .sort({ phase1Score: -1, phase1Time: 1 })
-        .limit(64);
-
-      const top64Ids = top64.map((p) => p._id);
-      await Participant.updateMany(
-        { _id: { $in: top64Ids } },
-        { phase1Qualified: true, phase2Active: true },
-      );
-    }
+    const { qualifiedCount, submittedCount } =
+      await computePhase1Qualification("Phase 1 end (REST)");
 
     res.json({
       success: true,
-      message: "Phase 1 ended. Top 64 per track qualified.",
+      message: `Phase 1 ended. Top ${TOP_QUALIFIED_COUNT} qualified.`,
+      qualifiedCount,
+      submittedCount,
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -108,6 +97,7 @@ exports.submitPhase1 = async (req, res) => {
     participant.phase1Score = score;
     participant.phase1Time = timeTaken;
     participant.phase1Submitted = true;
+    participant.submittedAt = new Date();
     await participant.save();
 
     res.json({
@@ -123,10 +113,26 @@ exports.submitPhase1 = async (req, res) => {
 // GET /api/phase1/leaderboard
 exports.getLeaderboard = async (req, res) => {
   try {
-    const leaderboard = await Participant.find({ phase1Submitted: true })
-      .select("usn name track phase1Score phase1Time phase1Qualified")
-      .sort({ phase1Score: -1, phase1Time: 1 });
-    res.json(leaderboard);
+    const scope = String(req.query.scope || "all").toLowerCase();
+
+    const filter = {};
+    if (scope === "qualified") {
+      filter.phase1Qualified = true;
+    }
+
+    const leaderboard = await Participant.find(filter)
+      .select("usn name phase1Score phase1Qualified submittedAt")
+      .sort({ phase1Score: -1, submittedAt: 1, _id: 1 });
+
+    const ranked = leaderboard.map((p, index) => ({
+      rank: index + 1,
+      usn: p.usn,
+      name: p.name,
+      score: p.phase1Score,
+      qualified: p.phase1Qualified,
+    }));
+
+    res.json(ranked);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
