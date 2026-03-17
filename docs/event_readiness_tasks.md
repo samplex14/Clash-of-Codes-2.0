@@ -8,14 +8,14 @@ Pre-event checklist to ensure Clash of Codes 2.0 runs without issues.
 
 ### Backend
 
-- [ ] MongoDB Atlas cluster (or local instance) is set up and accessible
-- [ ] `.env` file configured with `MONGO_URI`, `PORT`, `ADMIN_SECRET`
-- [ ] All REST API endpoints tested (Postman / Thunder Client)
-- [ ] Socket.IO duel flow tested end-to-end (2 browser tabs)
-- [ ] Phase 1 session start/end correctly sets `phase1Qualified`
-- [ ] Matchmaking generates correct pairs per track
-- [ ] Duel result computed correctly (score → time tiebreaker)
-- [ ] Admin token middleware working on protected routes
+- [x] MongoDB Atlas cluster (or local instance) is set up and accessible
+- [x] `.env` file configured with `MONGO_URI`, `PORT`, `ADMIN_SECRET`
+- [x] All REST API endpoints tested (Postman / Thunder Client)
+- [x] Socket.IO duel flow tested end-to-end (2 browser tabs)
+- [x] Phase 1 session start/end correctly sets `phase1Qualified`
+- [x] Matchmaking generates correct pairs per track
+- [x] Duel result computed correctly (score → time tiebreaker)
+- [x] Admin token middleware working on protected routes
 
 ### Frontend
 
@@ -32,6 +32,16 @@ Pre-event checklist to ensure Clash of Codes 2.0 runs without issues.
 - [ ] Phase 1 questions loaded into DB (verified count per track)
 - [ ] Phase 2 questions loaded into DB (enough for all rounds)
 - [ ] Test run: 2 dummy participants registered, duel completed end-to-end
+
+---
+
+## Scaling & Load Handling (100-150 Users)
+
+- [ ] Load Test Socket.IO: Simulate 100-150 concurrent `join_room` and `submit_answer` events.
+- [ ] Configure Socket.IO options: Adjust `pingInterval` and `pingTimeout` to prevent disconnects on possibly slow venue WiFi.
+- [ ] Implement PM2 Cluster Mode: Run Node.js across all available CPU cores to handle connections efficiently.
+- [ ] Database Indexing: Preemptively add indexes on `Participant.usn`, `Participant.track`, `Participant.phase1Score`, `Match.round`, and `Match.status`.
+- [ ] API Rate Limiting: Add `express-rate-limit` on endpoints like `/api/phase1/submit` to mitigate spam requests.
 
 ---
 

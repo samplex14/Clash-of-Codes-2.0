@@ -87,20 +87,26 @@ async function scheduleDisconnectForfeit(nsp, matchId, usn) {
 
 module.exports = function duelHandler(nsp, socket) {
   // Player joins their duel room
-  socket.on("join_room", async ({ matchId, usn }) => {
+  socket.on("join_room", async ({ matchId, usn }, ack) => {
     try {
       const match = await Match.findById(matchId)
         .populate("player1", "usn name")
         .populate("player2", "usn name");
 
       if (!match) {
-        return socket.emit("error", { message: "Match not found" });
+        const payload = { message: "Match not found" };
+        if (typeof ack === "function")
+          ack({ ok: false, error: payload.message });
+        return socket.emit("error", payload);
       }
 
       const isPlayer1 = match.player1.usn === usn.toUpperCase();
       const isPlayer2 = match.player2.usn === usn.toUpperCase();
       if (!isPlayer1 && !isPlayer2) {
-        return socket.emit("error", { message: "You are not in this match" });
+        const payload = { message: "You are not in this match" };
+        if (typeof ack === "function")
+          ack({ ok: false, error: payload.message });
+        return socket.emit("error", payload);
       }
 
       clearDisconnectTimer(matchId, usn.toUpperCase());
@@ -115,7 +121,12 @@ module.exports = function duelHandler(nsp, socket) {
         matchId,
         opponent: { usn: opponent.usn, name: opponent.name },
       });
+
+      if (typeof ack === "function") {
+        ack({ ok: true, matchId, opponentUsn: opponent.usn });
+      }
     } catch (err) {
+      if (typeof ack === "function") ack({ ok: false, error: err.message });
       socket.emit("error", { message: err.message });
     }
   });
@@ -166,17 +177,25 @@ module.exports = function duelHandler(nsp, socket) {
   // Player submits an answer
   socket.on(
     "submit_answer",
-    async ({ matchId, usn, questionIndex, answerIndex, timestamp }) => {
+    async ({ matchId, usn, questionIndex, answerIndex, timestamp }, ack) => {
       try {
         const match = await Match.findById(matchId);
-        if (!match || match.status !== "active") return;
+        if (!match || match.status !== "active") {
+          if (typeof ack === "function") {
+            ack({ ok: false, error: "Match is not active" });
+          }
+          return;
+        }
 
         if (
           questionIndex === undefined ||
           questionIndex < 0 ||
           questionIndex >= match.questions.length
         ) {
-          return socket.emit("error", { message: "Invalid question index" });
+          const payload = { message: "Invalid question index" };
+          if (typeof ack === "function")
+            ack({ ok: false, error: payload.message });
+          return socket.emit("error", payload);
         }
 
         const questionId = match.questions[questionIndex];
@@ -195,7 +214,10 @@ module.exports = function duelHandler(nsp, socket) {
           usn: usn.toUpperCase(),
         });
         if (!participant) {
-          return socket.emit("error", { message: "Participant not found" });
+          const payload = { message: "Participant not found" };
+          if (typeof ack === "function")
+            ack({ ok: false, error: payload.message });
+          return socket.emit("error", payload);
         }
 
         const isPlayer1 =
@@ -209,6 +231,9 @@ module.exports = function duelHandler(nsp, socket) {
           (a) => a.questionId.toString() === questionId.toString(),
         );
         if (alreadyAnswered) {
+          if (typeof ack === "function") {
+            ack({ ok: false, error: "Question already answered" });
+          }
           return socket.emit("error", {
             message: "Question already answered",
           });
@@ -223,6 +248,16 @@ module.exports = function duelHandler(nsp, socket) {
         }
 
         await match.save();
+
+        if (typeof ack === "function") {
+          ack({
+            ok: true,
+            correct,
+            answeredCount: isPlayer1
+              ? match.player1Answers.length
+              : match.player2Answers.length,
+          });
+        }
 
         // Broadcast opponent progress (how many answered, not which)
         const answeredCount = isPlayer1
@@ -242,6 +277,7 @@ module.exports = function duelHandler(nsp, socket) {
           await finishDuel(nsp, match);
         }
       } catch (err) {
+        if (typeof ack === "function") ack({ ok: false, error: err.message });
         socket.emit("error", { message: err.message });
       }
     },

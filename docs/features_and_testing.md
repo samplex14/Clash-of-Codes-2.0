@@ -8,20 +8,20 @@ Complete feature list and corresponding test scenarios for Clash of Codes 2.0.
 
 ### Registration
 
-- [ ] Participant can register with USN, name, and year
-- [ ] Duplicate USN is rejected
-- [ ] Track (1st_year / 2nd_year) is auto-assigned from year field
-- [ ] Admin can view all registered participants
+- [x] Participant can register with USN, name, and year
+- [x] Duplicate USN is rejected
+- [x] Track (1st_year / 2nd_year) is auto-assigned from year field
+- [x] Admin can view all registered participants
 
 ### Phase 1 — Rapid Fire Round
 
-- [ ] Admin can start Phase 1 (set session to "active")
-- [ ] Participants see questions only while Phase 1 is active
-- [ ] Questions are displayed with a countdown timer
-- [ ] Participant submits answers; server scores them immediately
-- [ ] Admin can end Phase 1 (set session to "ended")
-- [ ] After Phase 1 ends, top 64 per track are automatically flagged
-- [ ] Admin can view the Phase 1 leaderboard sorted by score, then time
+- [x] Admin can start Phase 1 (set session to "active")
+- [x] Participants see questions only while Phase 1 is active
+- [x] Questions are displayed with a countdown timer
+- [x] Participant submits answers; server scores them immediately
+- [x] Admin can end Phase 1 (set session to "ended")
+- [x] After Phase 1 ends, top 64 per track are automatically flagged
+- [x] Admin can view the Phase 1 leaderboard sorted by score, then time
 
 ### Phase 2 — MCQ Duels
 
@@ -42,16 +42,16 @@ Complete feature list and corresponding test scenarios for Clash of Codes 2.0.
 
 - [x] Top 8 players are identified after Phase 2
 - [x] Admin can view the finalists list
-- [ ] (Conducted externally on HackerRank)
+- [x] (Conducted externally on HackerRank)
 
 ### Admin Dashboard
 
-- [ ] Protected by admin token (unauthorized requests rejected)
-- [ ] Can add / delete questions for Phase 1 and Phase 2
-- [ ] Can view and search participants
-- [ ] Can start / end Phase 1
-- [ ] Can trigger Phase 2 matchmaking
-- [ ] Can view all current round matches and their status
+- [x] Protected by admin token (unauthorized requests rejected)
+- [x] Can add / delete questions for Phase 1 and Phase 2
+- [x] Can view and search participants
+- [x] Can start / end Phase 1
+- [x] Can trigger Phase 2 matchmaking
+- [x] Can view all current round matches and their status
 
 ---
 

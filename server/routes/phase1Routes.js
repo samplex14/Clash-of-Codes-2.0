@@ -8,15 +8,29 @@ const {
   getLeaderboard,
   getPhase1Questions,
 } = require("../controllers/phase1Controller");
+const {
+  phase1SubmitLimiter,
+  adminActionLimiter,
+} = require("../middleware/rateLimiters");
 
 // Admin routes
-router.post("/admin/phase1/start", adminAuth, startPhase1);
-router.post("/admin/phase1/end", adminAuth, endPhase1);
-router.get("/admin/phase1/status", adminAuth, getPhase1Status);
-router.get("/phase1/leaderboard", adminAuth, getLeaderboard);
+router.post("/admin/phase1/start", adminActionLimiter, adminAuth, startPhase1);
+router.post("/admin/phase1/end", adminActionLimiter, adminAuth, endPhase1);
+router.get(
+  "/admin/phase1/status",
+  adminActionLimiter,
+  adminAuth,
+  getPhase1Status,
+);
+router.get(
+  "/phase1/leaderboard",
+  adminActionLimiter,
+  adminAuth,
+  getLeaderboard,
+);
 
 // Public routes
-router.post("/phase1/submit", submitPhase1);
+router.post("/phase1/submit", phase1SubmitLimiter, submitPhase1);
 router.get("/phase1/questions", getPhase1Questions);
 
 module.exports = router;

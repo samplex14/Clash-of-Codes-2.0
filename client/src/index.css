@@ -1,0 +1,55 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@font-face {
+  font-family: 'Supercell-Magic';
+  /* Replace with actual webfont if available, otherwise fallback handles it */
+  src: local('Impact');
+}
+
+@layer base {
+  body {
+    @apply bg-clash-dark text-white font-sans antialiased min-h-screen selection:bg-clash-elixir selection:text-white;
+    background-image: radial-gradient(circle at center, #2c2521 0%, #1e1a17 100%);
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-clash tracking-wide drop-shadow-md text-clash-gold;
+    -webkit-text-stroke: 1px #5e3a21;
+  }
+}
+
+@layer components {
+  .btn-clash {
+    @apply bg-clash-green text-white font-clash text-lg py-2 px-6 rounded-lg 
+           border-2 border-[#166534] shadow-clash-btn 
+           transform transition-all active:translate-y-1 active:shadow-none
+           hover:brightness-110 uppercase tracking-widest;
+    -webkit-text-stroke: 1px #166534;
+  }
+
+  .btn-clash-danger {
+    @apply bg-clash-red text-white font-clash text-lg py-2 px-6 rounded-lg 
+           border-2 border-[#881337] shadow-[0_4px_0_0_#881337] 
+           transform transition-all active:translate-y-1 active:shadow-none
+           hover:brightness-110 uppercase tracking-widest;
+    -webkit-text-stroke: 1px #881337;
+  }
+
+  .card-clash {
+    @apply bg-clash-woodlight border-4 border-clash-wood rounded-xl shadow-clash-card p-6;
+    background-image: linear-gradient(180deg, #8b5a33 0%, #704728 100%);
+  }
+
+  .input-clash {
+    @apply bg-[#e5e5e5] border-2 border-clash-wood rounded-md px-4 py-3 text-clash-wood font-bold 
+           focus:outline-none focus:ring-4 focus:ring-clash-elixir focus:border-transparent
+           placeholder-gray-500 shadow-inner;
+  }
+  
+  .badge-clash {
+    @apply inline-block px-3 py-1 bg-clash-dark border-2 border-clash-gold text-clash-gold 
+           rounded-full font-bold text-sm uppercase tracking-wider shadow-sm;
+  }
+}

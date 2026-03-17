@@ -53,4 +53,13 @@ const matchSchema = new mongoose.Schema({
   endedAt: Date,
 });
 
+// Covers "all matches for round" and sorted admin list views.
+matchSchema.index({ round: 1, track: 1, _id: 1 });
+
+// Covers phase progression checks (e.g. incomplete matches in a round).
+matchSchema.index({ round: 1, status: 1 });
+
+// Useful for operational dashboards filtered by state.
+matchSchema.index({ status: 1 });
+
 module.exports = mongoose.model("Match", matchSchema);

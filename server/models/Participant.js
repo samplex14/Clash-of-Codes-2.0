@@ -39,6 +39,20 @@ const participantSchema = new mongoose.Schema({
   registeredAt: { type: Date, default: Date.now },
 });
 
+// Track-scoped operations are common in qualification and matchmaking phases.
+participantSchema.index({ track: 1 });
+
+// Supports top-N leaderboard queries by track and tie-break time.
+participantSchema.index({ track: 1, phase1Score: -1, phase1Time: 1 });
+
+// Supports admin qualified list sorted by score/time within each track.
+participantSchema.index({
+  phase1Qualified: 1,
+  track: 1,
+  phase1Score: -1,
+  phase1Time: 1,
+});
+
 // Auto-assign track from year
 participantSchema.pre("save", function (next) {
   if (this.isModified("year")) {

@@ -32,8 +32,14 @@ app.get("/api/health", (req, res) => {
 const PORT = process.env.PORT || 5000;
 
 connectDB().then(() => {
-  initSocket(server);
-  server.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-  });
+  initSocket(server)
+    .then(() => {
+      server.listen(PORT, () => {
+        console.log(`Server running on port ${PORT}`);
+      });
+    })
+    .catch((err) => {
+      console.error("Failed to initialize Socket.IO:", err.message);
+      process.exit(1);
+    });
 });
