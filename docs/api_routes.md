@@ -1,33 +1,56 @@
-# API Routes and Socket Surface
+# API Routes
 
-## REST Routes
+## Matchmaking
 
-### Public
-
-- GET /api/health
-- POST /api/participants/register
-- GET /api/participants/[usn]
-- GET /api/phase1/status
-- GET /api/phase1/questions
-- POST /api/phase1/submit
-- GET /api/phase1/leaderboard
-- GET /api/leaderboard
 - POST /api/matchmaking
+  - body: { usn }
+  - returns: matched with opponent or waiting status
+  - side effects: may map two participants
 
-### Admin
+- GET /api/matchmaking/status?usn=...
+  - returns: { isMapped, mappedTo, opponentName }
 
-- GET /api/admin/participants
-- GET /api/admin/participants/qualified
-- GET /api/admin/phase1/status
-- POST /api/admin/phase1/start
-- POST /api/admin/phase1/end
-- GET /api/admin/phase1/questions
-- POST /api/admin/phase1/questions
-- DELETE /api/admin/phase1/questions/[id]
-- GET /api/admin/matchmaking-status
+## Tournament
 
-## Socket Namespace
+- GET /api/tournament/state
+  - returns: { phase1Active, leaderboardVisible }
 
-- Namespace: /phase1
-- Arena page now listens for phase1:questions and transitions inline to battle UI.
-- No client navigation occurs in response to phase1:questions.
+- POST /api/tournament/start
+  - returns: { success, phase1Active }
+  - side effects: idempotently activates phase and preloads ParticipantSession rows
+
+- GET /api/tournament/status
+  - returns: { submitted, total, allDone, leaderboardVisible }
+  - side effects: when allDone and not qualified yet, computes Top 8 and reveals leaderboard
+
+## Phase 1
+
+- GET /api/phase1/questions?usn=...
+  - returns: shuffled questions without correct answers
+  - side effects: creates ParticipantSession if missing
+
+- POST /api/phase1/confirm
+  - body: { usn, questionId, selectedOptionId }
+  - returns: updated confirmedAnswers map
+  - side effects: persists answer lock in ParticipantSession.confirmedAnswers
+
+- POST /api/phase1/submit
+  - body: { usn, lastQuestionId, lastSelectedOptionId }
+  - returns: { success, score, total }
+  - validates all previous questions are confirmed
+  - side effects: stores final score and submission flags
+
+## Leaderboard
+
+- GET /api/leaderboard
+  - gated until TournamentState.leaderboardVisible is true
+  - returns ranked participants with qualified flags
+
+## Participants
+
+- POST /api/participants/register
+  - body: { usn, name, year }
+  - returns created participant
+
+- GET /api/participants/[usn]
+  - returns participant record

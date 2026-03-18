@@ -1,35 +1,34 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { parseQuestionOptions } from "@/types/question";
+import { getOrCreateTournamentState } from "@/lib/tournamentState";
+import { getQuestionsForParticipant } from "@/lib/phase1Session";
+
+export const dynamic = "force-dynamic";
+
+const normalizeUsn = (usn: string): string => usn.trim().toUpperCase();
 
 export async function GET(
-  _request: NextRequest
-): Promise<NextResponse<{ error?: string; questions?: unknown[] }>> {
+  request: NextRequest
+): Promise<NextResponse<{ error?: string; questions?: Array<{ questionId: string; text: string; options: Array<{ id: string; text: string }> }> }>> {
   try {
-    const session = await db.phase1Session.findFirst({
-      where: {
-        status: "active"
-      },
-      orderBy: {
-        id: "desc"
-      }
-    });
-
-    if (!session) {
-      return NextResponse.json({ error: "Phase 1 not active" }, { status: 403 });
+    const usn = normalizeUsn(String(request.nextUrl.searchParams.get("usn") ?? ""));
+    if (!usn) {
+      return NextResponse.json({ error: "usn query parameter is required" }, { status: 400 });
     }
 
-    const questions = await db.question.findMany({ orderBy: { id: "asc" } });
+    const state = await getOrCreateTournamentState();
+    if (!state.phase1Active) {
+      return NextResponse.json({ error: "The battle horn has not sounded yet." }, { status: 403 });
+    }
 
-    const safeQuestions = questions.map((question) => ({
-      id: question.id,
-      questionText: question.questionText,
-      options: parseQuestionOptions(question.options),
-      matchRound: question.matchRound,
-      createdAt: question.createdAt
-    }));
+    const participant = await db.participant.findUnique({ where: { usn }, select: { usn: true } });
+    if (!participant) {
+      return NextResponse.json({ error: "Participant not found" }, { status: 404 });
+    }
 
-    return NextResponse.json({ questions: safeQuestions });
+    const questions = await getQuestionsForParticipant(usn);
+
+    return NextResponse.json({ questions });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Unexpected error";
     return NextResponse.json({ error: message }, { status: 500 });

@@ -1,22 +1,33 @@
-# Architecture Route Map
+# Architecture
 
-## Participant Routes
+## Stack
 
-- / : registration
-- /arena : matchmaking + waiting + battle + result (single page)
+- Next.js App Router
+- TypeScript
+- Prisma ORM
+- Neon PostgreSQL
+- Tailwind CSS
 
-## Admin Route
+## Runtime Model
 
-- /admin : control panel and status monitoring
+The app is fully serverless. There is no persistent Node process and no websocket server.
 
-## API Route Groups
+- UI and APIs run through Next.js route handlers
+- Shared state is persisted in PostgreSQL
+- Client updates use HTTP polling
 
-- /api/participants/\*
-- /api/matchmaking
-- /api/phase1/\*
-- /api/leaderboard
-- /api/admin/\*
+## State Storage
 
-## Socket Namespace
+- TournamentState: global flags for phase activation and leaderboard visibility
+- ParticipantSession: per-warrior shuffled question order, locked answers, and submission status
+- Participant: profile, mapping, score, and qualification
 
-- /phase1
+## Realtime Replacement
+
+Polling endpoints replace realtime sockets:
+
+- /api/matchmaking/status
+- /api/tournament/state
+- /api/tournament/status
+
+This is sufficient for controlled event scale around 100-150 participants.

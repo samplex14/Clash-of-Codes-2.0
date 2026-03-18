@@ -18,9 +18,30 @@ model Participant {
   mappedTo    String?
   mappedAt    DateTime?
   submittedAt DateTime?
-  socketId    String?
+  session     ParticipantSession?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
+}
+
+model TournamentState {
+  id                Int      @id @default(1)
+  phase1Active      Boolean  @default(false)
+  phase1StartedAt   DateTime?
+  phase1EndedAt     DateTime?
+  leaderboardVisible Boolean @default(false)
+  updatedAt         DateTime @updatedAt
+}
+
+model ParticipantSession {
+  id                 Int      @id @default(autoincrement())
+  usn                String   @unique
+  shuffledQuestionIds Json
+  confirmedAnswers   Json     @default("{}")
+  currentQuestionIndex Int    @default(0)
+  hasSubmitted       Boolean  @default(false)
+  submittedAt        DateTime?
+  createdAt          DateTime @default(now())
+  participant        Participant @relation(fields: [usn], references: [usn], onDelete: Cascade)
 }
 
 model Question {

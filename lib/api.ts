@@ -2,7 +2,8 @@ import { env } from "@/lib/env";
 
 const buildUrl = (path: string): string => {
   const cleanedPath = path.startsWith("/") ? path : `/${path}`;
-  return `${env.NEXT_PUBLIC_SOCKET_URL}${cleanedPath}`;
+  const baseUrl = env.NEXT_PUBLIC_APP_URL || (typeof window !== "undefined" ? window.location.origin : "");
+  return `${baseUrl}${cleanedPath}`;
 };
 
 interface RequestInitWithJson extends RequestInit {

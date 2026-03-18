@@ -1,40 +1,51 @@
 # Migration Guide
 
-## Overview
+## Summary
 
-This project migrated to a unified Next.js 14 App Router architecture with a custom Socket.IO server process.
+Clash of Codes has been migrated to a serverless architecture.
 
-## Key UX Architecture Decision
+- Removed Socket.IO and all websocket infrastructure
+- Removed admin dashboard, admin APIs, and admin auth logic
+- Removed custom server runtime
+- Added database-backed tournament state for stateless serverless requests
 
-Participant flow is now consolidated into a single page at /arena for the entire Phase 1 lifecycle:
+## Runtime Changes
 
-1. Matchmaking search
-2. Versus reveal and waiting for admin start
-3. Inline question delivery on phase1:questions
-4. Inline result rendering after submission
+- Old: long-lived custom server with in-memory phase state
+- New: Next.js App Router route handlers with Prisma + Neon persistence
 
-There is no route navigation between matchmaking, battle questions, and result states.
+All state that must survive requests now lives in PostgreSQL:
 
-## Runtime Architecture
+- Global phase flags in TournamentState
+- Per-warrior question order and confirmations in ParticipantSession
 
-- server.ts runs Next.js and Socket.IO in one long-lived process.
-- In-memory socket state (question order, submissions, matchmaking intervals) is held in lib/socketHandler.ts.
-- Database persistence is handled by Prisma in lib/db.ts.
+## Client Communication Changes
 
-## Phase 1 Delivery Change
+- Old: Socket emits/listeners for matchmaking and phase transitions
+- New: HTTP polling and POST/GET route handlers
 
-- phase1:start now pushes pre-shuffled questions directly to each participant socket.
-- Each participant receives a deterministic server-side shuffle keyed by USN + round salt.
-- Client never shuffles questions locally.
+Polling cadence:
 
-## Qualification Change
+- Matchmaking status: every 3 seconds
+- Tournament state (phase start): every 3 seconds
+- Tournament progress after submit: every 5 seconds
 
-- Qualification logic is Top 8 (not Top 64).
-- Ranking uses score desc, submittedAt asc for tie-breaks.
+## Deployment Changes
 
-## Prisma / Migration Operational Notes
+- Old: custom Node server entrypoint
+- New: Vercel-compatible Next.js serverless deployment
+- Added vercel.json and postinstall Prisma generate
 
-- Shared DB drift exists, so prisma migrate dev may request reset.
-- Non-destructive path used here: apply SQL migration files directly using prisma db execute.
-- Regenerate Prisma Client with engine support for runtime adapter compatibility:
-  - npm run db:generate
+## Environment Changes
+
+Required now:
+
+- DATABASE_URL (Neon pooled connection)
+- DIRECT_URL (Neon direct/non-pooled connection for migrations)
+- NEXT_PUBLIC_APP_URL
+- NODE_ENV
+
+Removed:
+
+- NEXT_PUBLIC_SOCKET_URL
+- ADMIN_SECRET

@@ -14,21 +14,13 @@ const nodeEnv = (["development", "production", "test"].includes(nodeEnvValue)
   ? nodeEnvValue
   : "development") as NodeEnv;
 
-const portValue = read("PORT") ?? "3000";
-const parsedPort = Number(portValue);
-
-if (Number.isNaN(parsedPort)) {
-  throw new Error("PORT must be a valid number");
-}
-
-const nextPublicSocketUrl = read("NEXT_PUBLIC_SOCKET_URL") ?? `http://localhost:${parsedPort}`;
+const nextPublicAppUrl = read("NEXT_PUBLIC_APP_URL") ?? "";
 
 const isServerRuntime = typeof window === "undefined";
 
 export const env = {
   NODE_ENV: nodeEnv,
-  NEXT_PUBLIC_SOCKET_URL: nextPublicSocketUrl,
-  PORT: parsedPort,
+  NEXT_PUBLIC_APP_URL: nextPublicAppUrl,
   DATABASE_URL: isServerRuntime ? requireEnv("DATABASE_URL", read("DATABASE_URL")) : "",
-  ADMIN_SECRET: isServerRuntime ? requireEnv("ADMIN_SECRET", read("ADMIN_SECRET")) : ""
+  DIRECT_URL: isServerRuntime ? read("DIRECT_URL") ?? "" : ""
 };

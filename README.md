@@ -1,56 +1,80 @@
 # Clash of Codes 2.0
 
-Clash of Codes 2.0 is a Next.js 14 + TypeScript realtime coding event platform themed around Clash of Clans.
+Clash of Codes 2.0 is a Clash-themed competitive coding platform built with Next.js, TypeScript, Prisma, and Neon PostgreSQL.
+
+This codebase is now fully serverless and deployable on Vercel.
 
 ## Tech Stack
 
 - Next.js 14 App Router
 - TypeScript
-- Prisma ORM + Neon PostgreSQL
-- Socket.IO (custom server via server.ts)
+- Prisma ORM
+- Neon PostgreSQL
 - Tailwind CSS
 
-## Participant Flow (Single Page Arena)
+## Architecture
 
-1. Register on /.
-2. Enter /arena and see matchmaking searching UI.
-3. Opponent is revealed on the versus layout.
-4. Participant stays on /arena waiting for admin start signal.
-5. Admin starts Phase 1.
-6. phase1:questions arrives and arena transitions inline to question panel (no route change).
-7. Participant answers and submits inside /arena.
-8. Result is shown inline in /arena (qualified celebration or eliminated summary).
+- No custom Node server
+- No Socket.IO or WebSocket runtime
+- No admin panel
+- Client/server communication uses HTTP route handlers and polling
 
-## Admin Flow
+Key state persistence:
 
-1. Open /admin and authenticate using ADMIN_SECRET.
-2. Start Phase 1 using admin controls.
-3. Server generates a per-participant deterministic shuffle and emits pre-shuffled questions.
-4. End Phase 1 to compute qualification.
-5. Review leaderboard and matchmaking status.
+- TournamentState for global phase flags
+- ParticipantSession for per-warrior question order and confirmations
 
-## Environment Variables
+## Participant Journey
 
-Create .env.local with the following:
-
-- DATABASE_URL: Neon PostgreSQL connection string
-- ADMIN_SECRET: Admin dashboard secret token
-- NEXT_PUBLIC_SOCKET_URL: Base app URL, for example http://localhost:3000
-- PORT: Server port (default 3000)
+1. Register on home page.
+2. Enter /arena and join matchmaking.
+3. If unmatched, arena polls matchmaking status every 3 seconds.
+4. Versus card appears when rival is assigned.
+5. Any warrior can press Sound the Battle Horn.
+6. Questions load inline in /arena from shuffled server-side session state.
+7. Confirm answers and submit final strike.
+8. Wait-for-others card polls tournament status every 5 seconds.
+9. Auto-redirect to /leaderboard when final standings are unlocked.
 
 ## Local Development
 
 1. npm install
 2. npm run db:generate
-3. Apply schema SQL if needed:
-   - npx prisma db execute --schema prisma/schema.prisma --file prisma/migrations/20260318120000_add_matchmaking_fields/migration.sql
-4. npm run dev
+3. npm run dev
 
-## Prisma Notes
+## Migrations
 
-- This repository currently uses manual SQL migration application because the shared DB has drifted history.
-- Use npm run db:generate after schema changes.
+Use direct URL for migrations and pooled URL for runtime.
+
+- DATABASE_URL: Neon pooled connection string
+- DIRECT_URL: Neon non-pooled/direct connection string
+
+Apply migration files:
+
+- npx prisma migrate deploy
+
+## Vercel Deployment
+
+1. Push repository to GitHub.
+2. Import project in Vercel.
+3. Set environment variables:
+   - DATABASE_URL
+   - DIRECT_URL
+   - NEXT_PUBLIC_APP_URL
+   - NODE_ENV=production
+4. Deploy.
+
+vercel.json is included with:
+
+- framework: nextjs
+- installCommand: npm install
+- buildCommand: prisma generate && next build
 
 ## Documentation
 
-Project docs are under docs/. Start with docs/README.md.
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+- [docs/PARTICIPANT_FLOW.md](docs/PARTICIPANT_FLOW.md)
+- [docs/API_ROUTES.md](docs/API_ROUTES.md)
+- [docs/DATABASE_SCHEMA.md](docs/DATABASE_SCHEMA.md)
+- [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)
+- [MIGRATION.md](MIGRATION.md)
