@@ -1,20 +1,17 @@
 # Admin Workflow
 
-1. **Login**
-   - Open `/admin`.
-   - Enter `ADMIN_SECRET`.
+1. Open /admin and authenticate with ADMIN_SECRET.
+2. Validate participant count and matchmaking status.
+3. Start Phase 1 when all participants are ready.
+4. Starting Phase 1 triggers server-side per-user shuffling and direct question emission.
+5. Monitor leaderboard and submissions.
+6. End Phase 1.
+7. Review Top 8 qualifiers and final standings.
 
-2. **Pre-Event**
-   - Verify participant registration is open.
-   - Upload Phase 1 questions.
-   - Confirm server health via `/api/health`.
+## Matchmaking Monitoring
 
-3. **Run Phase 1**
-   - Click `Start Phase 1`.
-   - Monitor active participation.
-   - Click `End Phase 1` when round ends.
-   - Review leaderboard and qualification outcome.
+Admin panel shows:
 
-4. **Post-Round**
-   - Export results if needed.
-   - Keep dashboard in read-only monitoring mode.
+- mapped participant count
+- waiting queue count
+- paired table (A vs B)

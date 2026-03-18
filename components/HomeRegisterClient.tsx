@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import LoadingCard from "@/components/LoadingCard";
 import { useParticipant } from "@/components/providers/ParticipantProvider";
@@ -44,7 +43,7 @@ const HomeRegisterClient: React.FC = () => {
       });
 
       login(response.participant);
-      router.push("/phase1");
+      router.push("/arena");
     } catch (requestError: unknown) {
       const message = requestError instanceof Error ? requestError.message : "Failed to register to the clan";
       setError(message);
@@ -61,14 +60,6 @@ const HomeRegisterClient: React.FC = () => {
       <div className="card-clash max-w-2xl w-full text-center space-y-8">
         <h1 className="text-5xl md:text-7xl font-clash text-clash-gold drop-shadow-lg mb-4">CLASH OF CODES 2.0</h1>
         <p className="text-xl text-white font-semibold">Prepare for Battle. Code to Survive.</p>
-        <div className="flex justify-center gap-6 mt-12">
-          <Link href="/admin" className="btn-clash bg-clash-dark text-clash-gold border-clash-gold text-center px-8 py-4 text-xl">
-            Admin Portal
-          </Link>
-          <Link href="/leaderboard" className="btn-clash text-center px-8 py-4 text-xl">
-            Leaderboard
-          </Link>
-        </div>
       </div>
 
       <div className="card-clash max-w-md w-full">

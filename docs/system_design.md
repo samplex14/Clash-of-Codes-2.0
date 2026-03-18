@@ -1,40 +1,27 @@
 # System Design
 
-## Core Components
+## Runtime Layers
 
-### 1. WebClient (React)
-A Single Page Application (SPA) serving as the interface for both Participants and Admins.
-- **State:** Uses `ParticipantContext` for session persistence.
-- **Real-time:** `socket.io-client` handles interruptions and dual-channel communication (Broadcasts vs Game logic).
+1. Next.js App Router for UI and API routes.
+2. Custom Node server (server.ts) hosts Next.js + Socket.IO.
+3. Prisma client for Neon PostgreSQL persistence.
 
-### 2. API Server (Node/Express)
-Handles stateless requests (Registration, CRUD).
-- **Middleware:** `adminAuth` ensures secure access to control endpoints.
+## Realtime Model
 
-### 3. Game Server (Socket.IO)
-Handles stateful game sessions.
-- **Namespace `/phase1`:** Low frequency, high broadcast volume (Start/Stop signals).
-    - **Memory Store:** Participant question order and submit state are held in memory during active session.
+- Socket namespace: /phase1
+- Stateful maps in lib/socketHandler.ts keep runtime session data.
+- Server emits user-targeted question arrays and outcomes.
 
-### 4. Database (MongoDB)
-- **Collections:**
-    - `participants`: User profiles, scores, status.
-    - `questions`: Content bank.
-    - `phase1sessions`: Audit log of phase 1 start/stop times.
+## Participant State Machine
 
-## Data Flow Diagram (Conceptual)
+- searching
+- found
+- battle
+- result
 
-```
-[React Client] <--(HTTP)--> [Express Routes] <--(Mongoose)--> [MongoDB]
-      ^                                                            ^
-      |                                                            |
-   (Socket.IO)                                               (Persistence)
-      |                                                            |
-      v                                                            v
-[Socket Namespace /phase1] --(Events: Start/Confirm/Submit)--> [Phase1 Handler]
-```
+All states are rendered in app/arena/page.tsx with opacity transitions.
 
-## Scaling Considerations
-- **Socket:** Designed to handle ~100-200 concurrent connections.
-- **Database:** Indexed on participant and question fields used by Phase 1 queries.
-- **Rate Limiting:** Implemented on API routes to prevent abuse.
+## Scale Notes
+
+- In-memory maps assume single realtime process.
+- For horizontal scale, external shared state/adapter would be required.

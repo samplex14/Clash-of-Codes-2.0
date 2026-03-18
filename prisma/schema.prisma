@@ -14,6 +14,9 @@ model Participant {
   track       String
   phase1Score Int       @default(0)
   qualified   Boolean   @default(false)
+  isMapped    Boolean   @default(false)
+  mappedTo    String?
+  mappedAt    DateTime?
   submittedAt DateTime?
   socketId    String?
   createdAt   DateTime  @default(now())

@@ -1,17 +1,11 @@
 # Phase 3: Grand Finals
 
-**Status:** 🚧 Planning / External
+## Status
 
-## Overview
-The final phase determines the ultimate winner among qualified finalists.
+Planning and controlled externally.
 
-## Proposed Format
-*   **Platform:** HackerRank / LeetCode (Private Contest) OR Built-in Code Editor.
-*   **Participants:** Final qualified set selected after Phase 1 process.
-*   **Duration:** 1-2 Hours.
-*   **Content:** 3 Algorithmic Coding Problems (Easy, Medium, Hard).
+## Current Integration Boundary
 
-## Integration
-*   Currently, the system's responsibility ends at identifying the Top 8.
-*   Admin uses the `AdminDashboard` to export the list of Finalists.
-*   Manual invites are sent for the coding contest.
+- System computes Top 8 after Phase 1.
+- Qualified participants see inline finalist celebration in /arena result state.
+- phase3:start socket event can be used to trigger finals transition when implemented.

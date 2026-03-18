@@ -15,6 +15,17 @@ interface LeaderboardResponse {
   leaderboard: LeaderboardPlayer[];
 }
 
+interface MatchmakingStatusResponse {
+  mappedCount: number;
+  waitingCount: number;
+  pairs: Array<{
+    playerAUSN: string;
+    playerAName: string;
+    playerBUSN: string;
+    playerBName: string;
+  }>;
+}
+
 const AdminDashboardClient: React.FC = () => {
   const { socket } = useSocket("/phase1");
   const [token, setToken] = useState<string>("");
@@ -22,6 +33,7 @@ const AdminDashboardClient: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(false);
   const [phase1Status, setPhase1Status] = useState<string>("idle");
   const [leaderboard, setLeaderboard] = useState<LeaderboardPlayer[]>([]);
+  const [matchmakingStatus, setMatchmakingStatus] = useState<MatchmakingStatusResponse | null>(null);
 
   useEffect(() => {
     const cached = window.localStorage.getItem("adminToken");
@@ -49,6 +61,14 @@ const AdminDashboardClient: React.FC = () => {
     setLeaderboard(response.leaderboard);
   };
 
+  const fetchMatchmakingStatus = async (): Promise<void> => {
+    const response = await apiRequest<MatchmakingStatusResponse>("/api/admin/matchmaking-status", {
+      headers: getHeaders()
+    });
+
+    setMatchmakingStatus(response);
+  };
+
   useEffect(() => {
     if (!authenticated) {
       return;
@@ -57,7 +77,7 @@ const AdminDashboardClient: React.FC = () => {
     const run = async (): Promise<void> => {
       setLoading(true);
       try {
-        await Promise.all([fetchStatus(), fetchLeaderboard()]);
+        await Promise.all([fetchStatus(), fetchLeaderboard(), fetchMatchmakingStatus()]);
       } finally {
         setLoading(false);
       }
@@ -68,6 +88,7 @@ const AdminDashboardClient: React.FC = () => {
     const interval = window.setInterval(() => {
       void fetchStatus();
       void fetchLeaderboard();
+      void fetchMatchmakingStatus();
     }, 5000);
 
     return () => {
@@ -104,7 +125,7 @@ const AdminDashboardClient: React.FC = () => {
   };
 
   const endPhase1 = async (): Promise<void> => {
-    if (!window.confirm("Are you sure you want to end Phase 1? This will lock submissions and compute the top 64.")) {
+    if (!window.confirm("Are you sure you want to end Phase 1? This will lock submissions and compute the Top 8 qualifiers.")) {
       return;
     }
 
@@ -120,7 +141,7 @@ const AdminDashboardClient: React.FC = () => {
       }
 
       setPhase1Status("ended");
-      await fetchLeaderboard();
+      await Promise.all([fetchLeaderboard(), fetchMatchmakingStatus()]);
     });
   };
 
@@ -189,6 +210,7 @@ const AdminDashboardClient: React.FC = () => {
             onClick={() => {
               void fetchStatus();
               void fetchLeaderboard();
+              void fetchMatchmakingStatus();
             }}
             className="bg-clash-woodlight text-white font-bold border-2 border-clash-wood px-4 rounded-lg shadow-sm hover:bg-clash-wood transition-colors"
           >
@@ -199,6 +221,56 @@ const AdminDashboardClient: React.FC = () => {
 
       <div className="w-full">
         <Leaderboard players={leaderboard} />
+      </div>
+
+      <div className="card-clash w-full border-t-8 border-t-clash-gold">
+        <h3 className="text-2xl font-clash text-white mb-4">Matchmaking Status</h3>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          <div className="bg-clash-wood border-2 border-[#4a2e1b] rounded-lg p-4">
+            <p className="text-sm text-gray-300">Mapped Participants</p>
+            <p className="text-3xl font-clash text-clash-gold">{matchmakingStatus?.mappedCount ?? 0}</p>
+          </div>
+          <div className="bg-clash-wood border-2 border-[#4a2e1b] rounded-lg p-4">
+            <p className="text-sm text-gray-300">Waiting For Opponent</p>
+            <p className="text-3xl font-clash text-clash-gold">{matchmakingStatus?.waitingCount ?? 0}</p>
+          </div>
+          <div className="bg-clash-wood border-2 border-[#4a2e1b] rounded-lg p-4">
+            <p className="text-sm text-gray-300">Total Pairs</p>
+            <p className="text-3xl font-clash text-clash-gold">{matchmakingStatus?.pairs.length ?? 0}</p>
+          </div>
+        </div>
+
+        <h4 className="text-xl font-clash text-clash-gold mb-3">Current Pairs</h4>
+        <div className="overflow-x-auto rounded-lg border-2 border-[#4a2e1b]">
+          <table className="w-full text-left">
+            <thead className="bg-clash-wood">
+              <tr>
+                <th className="px-3 py-2 text-sm text-gray-200">Player A USN</th>
+                <th className="px-3 py-2 text-sm text-gray-200">Player A Name</th>
+                <th className="px-3 py-2 text-sm text-gray-200">Player B USN</th>
+                <th className="px-3 py-2 text-sm text-gray-200">Player B Name</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(matchmakingStatus?.pairs ?? []).map((pair) => (
+                <tr key={`${pair.playerAUSN}-${pair.playerBUSN}`} className="border-t border-[#4a2e1b]">
+                  <td className="px-3 py-2 text-sm text-white">{pair.playerAUSN}</td>
+                  <td className="px-3 py-2 text-sm text-white">{pair.playerAName}</td>
+                  <td className="px-3 py-2 text-sm text-white">{pair.playerBUSN}</td>
+                  <td className="px-3 py-2 text-sm text-white">{pair.playerBName}</td>
+                </tr>
+              ))}
+              {matchmakingStatus && matchmakingStatus.pairs.length === 0 ? (
+                <tr>
+                  <td className="px-3 py-4 text-sm text-gray-300" colSpan={4}>
+                    No complete pairs yet.
+                  </td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

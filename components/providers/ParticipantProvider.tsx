@@ -6,6 +6,8 @@ export interface ParticipantState {
   usn: string;
   name: string;
   track: string;
+  mappedTo?: string;
+  mappedAt?: string;
   phase1Score?: number;
   phase1Rank?: number;
   phase1Qualified?: boolean;

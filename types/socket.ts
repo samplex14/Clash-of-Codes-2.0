@@ -41,6 +41,8 @@ export interface Phase1QuestionsEvent {
 export interface Phase1ResultEvent {
   score: number;
   total: number;
+  qualified?: boolean;
+  rank?: number;
   breakdown: {
     questionId: string;
     correct: boolean;
@@ -59,6 +61,27 @@ export interface Phase1OutcomeEvent {
   score: number;
 }
 
+export interface MatchmakingEnterArenaPayload {
+  usn: string;
+}
+
+export interface MatchmakingOpponentFoundPayload {
+  opponentName: string;
+  opponentUSN: string;
+  matchedAt: string;
+}
+
+export interface MatchmakingWaitingInQueuePayload {
+  message: string;
+}
+
+export interface MatchmakingTimeoutPayload {
+  ghostOpponent: {
+    name: string;
+    usn: string;
+  };
+}
+
 export interface ServerToClientEvents {
   "phase1:started": () => void;
   "phase1:ended": () => void;
@@ -70,6 +93,11 @@ export interface ServerToClientEvents {
   "phase1:result": (payload: Phase1ResultEvent) => void;
   "phase1:qualified": (payload: Phase1OutcomeEvent) => void;
   "phase1:eliminated": (payload: Phase1OutcomeEvent) => void;
+  "phase3:start": () => void;
+  "matchmaking:searching": (payload: { message: string }) => void;
+  "matchmaking:opponent_found": (payload: MatchmakingOpponentFoundPayload) => void;
+  "matchmaking:waiting_in_queue": (payload: MatchmakingWaitingInQueuePayload) => void;
+  "matchmaking:timeout": (payload: MatchmakingTimeoutPayload) => void;
 }
 
 export interface ClientToServerEvents {
@@ -80,6 +108,8 @@ export interface ClientToServerEvents {
   "reconnect:check": (payload: Phase1RejoinPayload, ack?: (response: Phase1AnswerAck & { status?: string; submitted?: boolean }) => void) => void;
   "phase1:confirm_answer": (payload: Phase1ConfirmAnswerPayload, ack?: (response: Phase1AnswerAck) => void) => void;
   "phase1:submit": (payload: Phase1SubmitPayload, ack?: (response: Phase1AnswerAck & { score?: number; total?: number }) => void) => void;
+  "matchmaking:enter_arena": (payload: MatchmakingEnterArenaPayload) => void;
+  "matchmaking:find_opponent": (payload: MatchmakingEnterArenaPayload) => void;
 }
 
 export interface InterServerEvents {

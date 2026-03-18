@@ -1,22 +1,25 @@
-# Phase 1: Rapid Fire Round
+# Phase 1: Rapid Fire
 
-**Status:** ✅ Implemented
+## Status
 
-## Format
-*   **Participation:** Open to all registered users.
-*   **Mode:** Asynchronous start (within window) or Synchronous broadcast start.
-*   **Content:** Multiple Choice Questions (Tech + Logic).
+Implemented and active.
 
-## Implementation Details
-*   **Controller:** `server/controllers/phase1Controller.js`
-*   **Frontend:** `client/src/pages/Phase1.jsx`
-*   **Data Model:** `Participant` schema stores `phase1Score` and `phase1Time`.
+## Delivery Model
 
-## Workflow
-1. User logs in.
-2. Waits for "Phase Active" signal.
-3. Fetches questions from `/api/phase1/questions`.
-4. Timer runs locally.
-5. User submits all answers in one payload to `/api/phase1/submit`.
-6. Server validates, scores, and saves.
-7. Leaderboards available at `/api/phase1/leaderboard`.
+- Phase 1 is delivered inline on /arena.
+- Participants do not navigate to a separate quiz route.
+- Questions appear only when admin starts phase via socket event.
+
+## Participant Experience
+
+1. Matchmaking search
+2. Versus waiting screen
+3. Inline transition to battle panel on phase1:questions
+4. Answer lock and final submit
+5. Inline result view
+
+## Answer Rules
+
+- Answer can be locked per question.
+- Final submit is allowed only on last question.
+- All previous questions must be locked before submit.

@@ -1,28 +1,21 @@
 # Event Readiness Tasks
 
-Current Status: **Phase 1 active and supported.**
+## Pre-Event
 
-## Critical Tasks
+- Validate database connectivity and prisma client generation.
+- Confirm admin authentication and dashboard visibility.
+- Verify question bank availability.
 
-### 1. Content
-- [ ] Prepare and validate full Phase 1 question set.
-- [ ] Verify question quality and answer keys.
+## Dry Run
 
-### 2. Dry Run
-- [ ] Register test users.
-- [ ] Start Phase 1.
-- [ ] Confirm question delivery and submission flow.
-- [ ] End Phase 1 and verify leaderboard ordering.
+- Register participants and open /arena on multiple devices.
+- Confirm matchmaking opponent reveal and waiting indicator.
+- Start Phase 1 from admin and verify inline question transition.
+- Confirm per-device shuffled order differs.
+- Submit responses and verify inline result rendering.
 
-### 3. Infrastructure
-- [ ] Verify production env vars (`MONGO_URI`, `ADMIN_SECRET`, `PORT`).
-- [ ] Verify `/api/health` on deployed server.
-- [ ] Verify frontend to backend connectivity.
+## Live Checklist
 
-## Testing Checklist
-
-- [ ] Participant can rejoin during active Phase 1.
-- [ ] Admin start/end controls work from dashboard.
-- [ ] Submit validation blocks incomplete submissions.
-- [ ] Qualification emits are received by participants.
-- [ ] Browser compatibility check (Chrome, Firefox, Edge).
+- Keep one admin monitor open for matchmaking status.
+- Watch waiting queue count before starting Phase 1.
+- Start and end Phase 1 at planned event timings.

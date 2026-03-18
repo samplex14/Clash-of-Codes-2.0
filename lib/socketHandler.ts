@@ -2,6 +2,12 @@ import type { Server, Socket } from "socket.io";
 import { db } from "./db";
 import { env } from "./env";
 import { computePhase1Qualification } from "./phase1Qualification";
+import {
+  assignMatchForParticipant,
+  buildGhostOpponent,
+  findOpponentForQueuedParticipant,
+  type MatchmakingResult
+} from "./matchmaking";
 import { parseQuestionOptions } from "../types/question";
 import type {
   ClientToServerEvents,
@@ -26,24 +32,49 @@ type PhaseSocket = Socket<
 
 let isPhase1Active = false;
 let questionCache: Array<{ id: number; questionText: string; options: unknown; correctOptionId: string }> | null = null;
+let phase1RoundSalt = "";
 const participantShuffleMap = new Map<string, string[]>();
 const confirmedAnswers = new Map<string, Map<string, string>>();
 const participantSubmittedMap = new Map<string, boolean>();
 const participantScoreMap = new Map<string, number>();
 const socketToUSN = new Map<string, string>();
 const usnToSocket = new Map<string, string>();
+const matchmakingQueueIntervals = new Map<string, ReturnType<typeof setInterval>>();
+const matchmakingQueueTimeouts = new Map<string, ReturnType<typeof setTimeout>>();
 let qualificationComputed = false;
 
 const normalizeUsn = (usn: string | undefined): string => String(usn ?? "").trim().toUpperCase();
 
-const shuffle = (input: string[]): string[] => {
+const createSeededRng = (seedInput: string): (() => number) => {
+  let hash = 2166136261;
+
+  for (let index = 0; index < seedInput.length; index += 1) {
+    hash ^= seedInput.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+
+  let state = hash >>> 0;
+
+  return () => {
+    state = (state + 0x6d2b79f5) | 0;
+    let value = Math.imul(state ^ (state >>> 15), 1 | state);
+    value ^= value + Math.imul(value ^ (value >>> 7), 61 | value);
+    return ((value ^ (value >>> 14)) >>> 0) / 4294967296;
+  };
+};
+
+const buildDeterministicShuffle = (input: string[], usn: string, roundSalt: string): string[] => {
   const copy = [...input];
+  const seededRandom = createSeededRng(`${usn}:${roundSalt}`);
+
+  // Fisher-Yates shuffle using a deterministic RNG so reconnects preserve the same per-user order.
   for (let index = copy.length - 1; index > 0; index -= 1) {
-    const randomIndex = Math.floor(Math.random() * (index + 1));
+    const randomIndex = Math.floor(seededRandom() * (index + 1));
     const temp = copy[index];
     copy[index] = copy[randomIndex];
     copy[randomIndex] = temp;
   }
+
   return copy;
 };
 
@@ -69,6 +100,58 @@ const emitToUSN = (
   };
 
   emitter.emit(String(eventName), payload);
+};
+
+const clearMatchmakingTimerForUSN = (usn: string): void => {
+  const queueInterval = matchmakingQueueIntervals.get(usn);
+  if (queueInterval) {
+    clearInterval(queueInterval);
+    matchmakingQueueIntervals.delete(usn);
+  }
+
+  const queueTimeout = matchmakingQueueTimeouts.get(usn);
+  if (queueTimeout) {
+    clearTimeout(queueTimeout);
+    matchmakingQueueTimeouts.delete(usn);
+  }
+};
+
+const emitMatchmakingResult = (
+  namespace: ReturnType<PhaseSocketServer["of"]>,
+  usn: string,
+  result: MatchmakingResult
+): void => {
+  if (result.status === "matched") {
+    const matchedAt = result.matchedAt.toISOString();
+
+    clearMatchmakingTimerForUSN(result.participant.usn);
+    clearMatchmakingTimerForUSN(result.opponent.usn);
+
+    emitToUSN(namespace, usn, "matchmaking:opponent_found", {
+      opponentName: result.opponent.name,
+      opponentUSN: result.opponent.usn,
+      matchedAt
+    });
+
+    emitToUSN(namespace, result.opponent.usn, "matchmaking:opponent_found", {
+      opponentName: result.participant.name,
+      opponentUSN: result.participant.usn,
+      matchedAt
+    });
+
+    return;
+  }
+
+  if (result.status === "waiting") {
+    emitToUSN(namespace, usn, "matchmaking:waiting_in_queue", {
+      message: result.queueMessage
+    });
+    return;
+  }
+
+  emitToUSN(namespace, usn, "matchmaking:waiting_in_queue", {
+    message: result.message
+  });
 };
 
 const setSocketIdentity = (socket: PhaseSocket, usn: string | undefined): string | null => {
@@ -261,6 +344,7 @@ export const initSocketHandlers = (io: PhaseSocketServer): void => {
 
         isPhase1Active = true;
         questionCache = questions;
+        phase1RoundSalt = `${Date.now()}:${questions.length}`;
         participantShuffleMap.clear();
         confirmedAnswers.clear();
         participantSubmittedMap.clear();
@@ -271,7 +355,7 @@ export const initSocketHandlers = (io: PhaseSocketServer): void => {
 
         participants.forEach((participant) => {
           const usn = normalizeUsn(participant.usn);
-          participantShuffleMap.set(usn, shuffle(questionIds));
+          participantShuffleMap.set(usn, buildDeterministicShuffle(questionIds, usn, phase1RoundSalt));
           confirmedAnswers.set(usn, new Map<string, string>());
           participantSubmittedMap.set(usn, false);
           participantScoreMap.set(usn, 0);
@@ -295,6 +379,11 @@ export const initSocketHandlers = (io: PhaseSocketServer): void => {
         });
 
         namespace.emit("phase1:started");
+
+        participantShuffleMap.forEach((shuffleOrder, usn) => {
+          emitToUSN(namespace, usn, "phase1:questions", buildClientQuestionsFromOrder(shuffleOrder));
+        });
+
         safeAck(ack, {
           ok: true,
           questionCount: questions.length,
@@ -465,6 +554,8 @@ export const initSocketHandlers = (io: PhaseSocketServer): void => {
         emitToUSN(namespace, usn, "phase1:result", {
           score,
           total: userOrder.length,
+          qualified: false,
+          rank: 0,
           breakdown
         });
 
@@ -478,12 +569,89 @@ export const initSocketHandlers = (io: PhaseSocketServer): void => {
       }
     });
 
+    socket.on("matchmaking:enter_arena", async ({ usn }) => {
+      const normalizedUsn = setSocketIdentity(socket, usn);
+      if (!normalizedUsn) {
+        socket.emit("matchmaking:waiting_in_queue", { message: "War tag missing. Re-enter the village gate." });
+        return;
+      }
+
+      socket.emit("matchmaking:searching", { message: "Scouting the battlefield for a rival..." });
+
+      try {
+        const result = await assignMatchForParticipant(normalizedUsn);
+        emitMatchmakingResult(namespace, normalizedUsn, result);
+      } catch (error: unknown) {
+        emitToUSN(namespace, normalizedUsn, "matchmaking:waiting_in_queue", {
+          message: error instanceof Error ? error.message : "Battle search failed. Keep scouting."
+        });
+      }
+    });
+
+    socket.on("matchmaking:find_opponent", ({ usn }) => {
+      const normalizedUsn = setSocketIdentity(socket, usn);
+      if (!normalizedUsn) {
+        socket.emit("matchmaking:waiting_in_queue", { message: "War tag missing. Re-enter the village gate." });
+        return;
+      }
+
+      if (matchmakingQueueIntervals.has(normalizedUsn)) {
+        return;
+      }
+
+      let tickInFlight = false;
+      const queueInterval = setInterval(() => {
+        if (tickInFlight) {
+          return;
+        }
+
+        tickInFlight = true;
+        void findOpponentForQueuedParticipant(normalizedUsn)
+          .then((result) => {
+            if (result.status === "matched") {
+              emitMatchmakingResult(namespace, normalizedUsn, result);
+              return;
+            }
+
+            if (result.status === "retry") {
+              emitToUSN(namespace, normalizedUsn, "matchmaking:waiting_in_queue", {
+                message: result.message
+              });
+            }
+          })
+          .finally(() => {
+            tickInFlight = false;
+          });
+      }, 3000);
+
+      const queueTimeout = setTimeout(() => {
+        clearMatchmakingTimerForUSN(normalizedUsn);
+        const ghostOpponent = buildGhostOpponent();
+
+        void db.$executeRaw`
+          UPDATE "Participant"
+          SET "mappedTo" = ${ghostOpponent.usn},
+              "mappedAt" = NOW(),
+              "updatedAt" = NOW()
+          WHERE "usn" = ${normalizedUsn}
+        `;
+
+        emitToUSN(namespace, normalizedUsn, "matchmaking:timeout", {
+          ghostOpponent
+        });
+      }, 60000);
+
+      matchmakingQueueIntervals.set(normalizedUsn, queueInterval);
+      matchmakingQueueTimeouts.set(normalizedUsn, queueTimeout);
+    });
+
     socket.on("disconnect", () => {
       const usn = socketToUSN.get(socket.id);
       socketToUSN.delete(socket.id);
 
       if (usn && usnToSocket.get(usn) === socket.id) {
         usnToSocket.delete(usn);
+        clearMatchmakingTimerForUSN(usn);
       }
     });
   });

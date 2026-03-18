@@ -1,6 +1,6 @@
 import { db } from "./db";
 
-export const TOP_QUALIFIED_COUNT = 64;
+export const TOP_QUALIFIED_COUNT = 8;
 
 export interface RankedParticipant {
   id: number;

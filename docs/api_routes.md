@@ -1,50 +1,33 @@
-# API Routes & Socket Events
+# API Routes and Socket Surface
 
-## REST API
+## REST Routes
 
-### Health
-- `GET /api/health`
+### Public
 
-### Participants
-- `POST /api/participants/register` - Register a participant.
-- `GET /api/participants/:usn` - Get participant by USN.
-- `GET /api/admin/participants` - (Admin) List all participants.
-- `GET /api/admin/participants/qualified` - (Admin) Qualified list.
+- GET /api/health
+- POST /api/participants/register
+- GET /api/participants/[usn]
+- GET /api/phase1/status
+- GET /api/phase1/questions
+- POST /api/phase1/submit
+- GET /api/phase1/leaderboard
+- GET /api/leaderboard
+- POST /api/matchmaking
 
-### Phase 1
-- `POST /api/admin/phase1/start` - (Admin) Start Phase 1.
-- `POST /api/admin/phase1/end` - (Admin) End Phase 1.
-- `GET /api/admin/phase1/status` - (Admin) Current session status.
-- `GET /api/phase1/status` - Public phase status.
-- `GET /api/phase1/questions` - Active questions (no answers exposed).
-- `POST /api/phase1/submit` - Submit Phase 1 answers.
-- `GET /api/phase1/leaderboard` - Leaderboard.
+### Admin
 
-### Question Management (Admin)
-- `POST /api/admin/phase1/questions`
-- `GET /api/admin/phase1/questions`
-- `DELETE /api/admin/phase1/questions/:id`
+- GET /api/admin/participants
+- GET /api/admin/participants/qualified
+- GET /api/admin/phase1/status
+- POST /api/admin/phase1/start
+- POST /api/admin/phase1/end
+- GET /api/admin/phase1/questions
+- POST /api/admin/phase1/questions
+- DELETE /api/admin/phase1/questions/[id]
+- GET /api/admin/matchmaking-status
 
-## Socket.IO
+## Socket Namespace
 
-### Namespace: `/phase1`
-
-#### Client -> Server
-- `phase1:rejoin` `{ usn }`
-- `phase1:join` `{ usn }`
-- `phase1:start` `{ adminToken }`
-- `phase1:end` `{ adminToken }`
-- `phase1:confirm_answer` `{ questionId, selectedOptionId }`
-- `phase1:submit` `{ questionId, selectedOptionId }`
-
-#### Server -> Client
-- `phase1:started`
-- `phase1:ended`
-- `phase1:not_started`
-- `phase1:unauthorized`
-- `phase1:questions`
-- `phase1:answer_confirmed`
-- `phase1:submit_error`
-- `phase1:result`
-- `phase1:qualified`
-- `phase1:eliminated`
+- Namespace: /phase1
+- Arena page now listens for phase1:questions and transitions inline to battle UI.
+- No client navigation occurs in response to phase1:questions.

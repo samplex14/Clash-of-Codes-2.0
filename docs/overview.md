@@ -1,28 +1,24 @@
-# Project Overview
+# Overview
 
-Clash of Codes 2.0 is a Phase 1-only competitive coding event platform.
+Clash of Codes 2.0 runs a realtime Phase 1 coding battle with a matchmaking illusion and a single-page participant UX.
 
-## Objectives
+## Core Idea
 
-- Run fast participant onboarding and quiz delivery.
-- Provide reliable admin controls for starting and ending the round.
-- Publish qualification outcomes and leaderboard rankings.
+- Participants are cosmetically paired with an opponent.
+- Real scoring is individual across all participants.
+- Top 8 qualify after Phase 1.
 
-## Architecture
+## Participant UX
 
-- Frontend: React (Vite) + Tailwind CSS.
-- Backend: Node.js + Express + Socket.IO (`/phase1` namespace only).
-- Database: MongoDB (participants, questions, phase1sessions).
+The participant remains on /arena for:
 
-## Competition Flow
+1. Matchmaking search
+2. Versus reveal + waiting
+3. Inline question delivery when admin starts Phase 1
+4. Inline result rendering after submission
 
-1. Participants register with USN, name, and year.
-2. Admin starts Phase 1.
-3. Participants receive shuffled questions and submit answers.
-4. Admin ends Phase 1.
-5. Leaderboard and qualification status are published.
+No route navigation occurs between these states.
 
-## Current Status
+## Admin UX
 
-- Phase 1: Active and supported.
-- Additional tournament phases: Not part of this codebase.
+Admin controls start/end of Phase 1 from /admin and monitors leaderboard plus matchmaking status.

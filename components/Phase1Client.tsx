@@ -199,7 +199,7 @@ const Phase1Client: React.FC = () => {
         phase1Rank: rank,
         phase1Score: currentScore
       });
-      router.replace("/waiting");
+      router.replace("/qualified");
     };
 
     const handleEliminated = ({ rank, score: currentScore, name, usn }: { rank: number; score: number; name: string; usn: string }): void => {

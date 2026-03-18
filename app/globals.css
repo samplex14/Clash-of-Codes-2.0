@@ -48,3 +48,128 @@
     @apply inline-block px-3 py-1 bg-clash-dark border-2 border-clash-gold text-clash-gold rounded-full font-bold text-sm uppercase tracking-wider shadow-sm;
   }
 }
+
+.arena-bg-texture {
+  background:
+    radial-gradient(circle at 15% 10%, rgba(197, 143, 79, 0.16), transparent 35%),
+    radial-gradient(circle at 80% 85%, rgba(148, 73, 45, 0.22), transparent 40%),
+    linear-gradient(135deg, #23150d 0%, #1a110b 45%, #2a1a11 100%);
+}
+
+.arena-message-fade {
+  animation: arenaMessageFade 2s ease-in-out infinite;
+}
+
+.arena-reveal-in {
+  animation: arenaRevealIn 450ms ease-out;
+}
+
+.arena-vs-pulse {
+  animation: arenaVsPulse 900ms ease-in-out infinite;
+}
+
+.arena-sword {
+  position: absolute;
+  font-size: 1.25rem;
+  color: #f7d67f;
+}
+
+.arena-sword-left {
+  transform: rotate(-30deg) translate(-16px, -12px);
+}
+
+.arena-sword-right {
+  transform: rotate(30deg) translate(16px, 12px);
+}
+
+.arena-countdown-pop {
+  animation: arenaCountdownPop 350ms ease-out;
+}
+
+.qualified-gold-glow {
+  animation: qualifiedGlowPulse 2.4s ease-in-out infinite;
+}
+
+.qualified-line-fade {
+  animation: qualifiedLineFade 400ms ease-out;
+}
+
+@keyframes arenaMessageFade {
+  0% {
+    opacity: 0.25;
+    transform: translateY(4px);
+  }
+
+  20% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  80% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  100% {
+    opacity: 0.25;
+    transform: translateY(-4px);
+  }
+}
+
+@keyframes arenaRevealIn {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes arenaVsPulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(1.08);
+  }
+}
+
+@keyframes arenaCountdownPop {
+  from {
+    transform: scale(0.65);
+    opacity: 0;
+  }
+
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes qualifiedGlowPulse {
+  0%,
+  100% {
+    box-shadow: 0 16px 0 0 #2d1b0f, 0 0 0 rgba(247, 206, 113, 0.18);
+  }
+
+  50% {
+    box-shadow: 0 16px 0 0 #2d1b0f, 0 0 26px rgba(247, 206, 113, 0.34);
+  }
+}
+
+@keyframes qualifiedLineFade {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

@@ -10,7 +10,7 @@ const WaitingPage: React.FC = () => {
     <div className="flex flex-col items-center justify-center min-h-[80vh]">
       <div className="card-clash max-w-2xl w-full text-center space-y-6 animate-fade-in">
         <h2 className="text-4xl md:text-5xl font-clash text-clash-gold drop-shadow-md">Village Camp</h2>
-        <p className="text-xl text-white">You are in the Top 64. Please wait for admin instructions.</p>
+        <p className="text-xl text-white">You are in the Elite Top 8. Please wait for admin instructions.</p>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-left">
           <div className="bg-clash-woodlight border-2 border-clash-wood rounded-lg p-4">

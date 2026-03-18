@@ -5,11 +5,8 @@ export async function GET(
   request: NextRequest
 ): Promise<NextResponse<{ error?: string; leaderboard?: Array<{ rank: number; usn: string; name: string; score: number; track: string; qualified: boolean }> }>> {
   try {
-    const scope = String(request.nextUrl.searchParams.get("scope") ?? "all").toLowerCase();
-    const qualifiedFlag = String(request.nextUrl.searchParams.get("qualified") ?? "false").toLowerCase();
-    const qualifiedOnly = scope === "qualified" || qualifiedFlag === "true";
+    const qualifiedOnly = String(request.nextUrl.searchParams.get("qualified") ?? "false").toLowerCase() === "true";
     const leaderboard = await buildPhase1Leaderboard(qualifiedOnly);
-
     return NextResponse.json({ leaderboard });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Unexpected error";
