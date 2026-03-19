@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { Poppins as FontSans, Cinzel_Decorative, Cinzel } from "next/font/google"; // Import Google Fonts
 import { cn } from "@/lib/utils"; // If a cn helper exists, or just use className
 import AppProviders from "@/components/providers/AppProviders";
+import { Analytics } from "@vercel/analytics/react";
 
 const fontSans = FontSans({
   subsets: ["latin"],
@@ -38,6 +39,7 @@ export default function RootLayout({
         className={`${fontSans.variable} ${fontCinzelDecorative.variable} ${fontCinzel.variable} font-clash antialiased`}
       >
         <AppProviders>{children}</AppProviders>
+         <Analytics />
       </body>
     </html>
   );
