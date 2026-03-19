@@ -8,27 +8,33 @@ export async function POST(
   _request: NextRequest
 ): Promise<NextResponse<{ error?: string; success?: boolean; phase1Active?: boolean }>> {
   try {
-    const state = await db.tournamentState.upsert({
+    const existingState = await db.tournamentState.findUnique({
+      where: { id: 1 },
+      select: { phase1Active: true }
+    });
+
+    if (existingState?.phase1Active) {
+      return NextResponse.json({ success: true, phase1Active: true });
+    }
+
+    const startedAt = new Date();
+
+    await db.tournamentState.upsert({
       where: { id: 1 },
       update: {
-        phase1Active: true
+        phase1Active: true,
+        phase1StartedAt: startedAt,
+        phase1EndedAt: null,
+        leaderboardVisible: false
       },
       create: {
         id: 1,
         phase1Active: true,
-        phase1StartedAt: new Date(),
+        phase1StartedAt: startedAt,
+        phase1EndedAt: null,
         leaderboardVisible: false
       }
     });
-
-    if (!state.phase1StartedAt) {
-      await db.tournamentState.update({
-        where: { id: 1 },
-        data: {
-          phase1StartedAt: new Date()
-        }
-      });
-    }
 
     await preloadMappedParticipantSessions();
 

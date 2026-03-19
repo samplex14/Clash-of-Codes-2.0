@@ -63,8 +63,10 @@ export const ensureParticipantSession = async (inputUsn: string) => {
   const orderedIds = questions.map((question) => String(question.id));
   const shuffledQuestionIds = deterministicShuffle(orderedIds, `phase1:${usn}`);
 
-  return db.participantSession.create({
-    data: {
+  return db.participantSession.upsert({
+    where: { usn },
+    update: {},
+    create: {
       usn,
       shuffledQuestionIds,
       confirmedAnswers: {},
@@ -90,9 +92,7 @@ export const preloadMappedParticipantSessions = async (): Promise<void> => {
     }
   });
 
-  for (const participant of mappedParticipants) {
-    await ensureParticipantSession(participant.usn);
-  }
+  await Promise.allSettled(mappedParticipants.map((participant) => ensureParticipantSession(participant.usn)));
 };
 
 export const getQuestionsForParticipant = async (inputUsn: string): Promise<QuestionPayload[]> => {

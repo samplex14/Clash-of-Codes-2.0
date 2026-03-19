@@ -82,23 +82,38 @@ export async function POST(
     });
 
     const submittedAt = new Date();
-    await db.$transaction([
-      db.participant.update({
-        where: { usn },
+    await db.$transaction(async (tx) => {
+      const participantUpdate = await tx.participant.updateMany({
+        where: {
+          usn,
+          submittedAt: null
+        },
         data: {
           phase1Score: score,
           submittedAt
         }
-      }),
-      db.participantSession.update({
-        where: { usn },
+      });
+
+      if (participantUpdate.count === 0) {
+        throw new Error("Already submitted");
+      }
+
+      const sessionUpdate = await tx.participantSession.updateMany({
+        where: {
+          usn,
+          hasSubmitted: false
+        },
         data: {
           confirmedAnswers,
           hasSubmitted: true,
           submittedAt
         }
-      })
-    ]);
+      });
+
+      if (sessionUpdate.count === 0) {
+        throw new Error("Already submitted");
+      }
+    });
 
     return NextResponse.json({
       success: true,
@@ -106,6 +121,10 @@ export async function POST(
       total: shuffledQuestionIds.length
     });
   } catch (error: unknown) {
+    if (error instanceof Error && error.message === "Already submitted") {
+      return NextResponse.json({ error: "Already submitted" }, { status: 409 });
+    }
+
     const message = error instanceof Error ? error.message : "Unexpected error";
     return NextResponse.json({ error: message }, { status: 500 });
   }

@@ -1,47 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getOrCreateTournamentState } from "@/lib/tournamentState";
+import { computePhase1Qualification } from "@/lib/phase1Qualification";
 
 export const dynamic = "force-dynamic";
 
 const runQualificationIfNeeded = async (): Promise<void> => {
-  const alreadyQualified = await db.participant.count({ where: { qualified: true } });
-  if (alreadyQualified > 0) {
+  const qualification = await computePhase1Qualification();
+  if (qualification.submittedCount === 0) {
     return;
   }
-
-  const sessions = await db.participantSession.findMany({
-    where: { hasSubmitted: true },
-    select: { usn: true }
-  });
-
-  if (sessions.length === 0) {
-    return;
-  }
-
-  const submittedParticipants = await db.participant.findMany({
-    where: {
-      usn: {
-        in: sessions.map((session) => session.usn)
-      }
-    },
-    orderBy: [{ phase1Score: "desc" }, { submittedAt: "asc" }, { id: "asc" }]
-  });
-
-  const topEightUsnSet = new Set(submittedParticipants.slice(0, 8).map((participant) => participant.usn));
 
   await db.$transaction([
-    db.participant.updateMany({ data: { qualified: false } }),
-    db.participant.updateMany({
-      where: {
-        usn: {
-          in: Array.from(topEightUsnSet)
-        }
-      },
-      data: {
-        qualified: true
-      }
-    }),
     db.tournamentState.upsert({
       where: { id: 1 },
       update: {
@@ -57,7 +27,6 @@ const runQualificationIfNeeded = async (): Promise<void> => {
       }
     })
   ]);
-
 };
 
 export async function GET(

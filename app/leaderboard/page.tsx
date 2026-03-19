@@ -50,6 +50,20 @@ const LeaderboardPage: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    if (!visible) {
+      return;
+    }
+
+    const interval = window.setInterval(() => {
+      void loadLeaderboard();
+    }, 5000);
+
+    return () => {
+      window.clearInterval(interval);
+    };
+  }, [visible]);
+
+  useEffect(() => {
     if (visible) {
       return;
     }
@@ -72,8 +86,7 @@ const LeaderboardPage: React.FC = () => {
     };
   }, [visible]);
 
-  const topEight = useMemo<LeaderboardEntry[]>(() => players.filter((player) => player.qualified).slice(0, 8), [players]);
-  const others = useMemo<LeaderboardEntry[]>(() => players.filter((player) => !player.qualified), [players]);
+  const leaderboard = useMemo<LeaderboardEntry[]>(() => players, [players]);
 
   if (loading) {
     return (
@@ -104,10 +117,10 @@ const LeaderboardPage: React.FC = () => {
       <section className="card-clash border-4 border-[#e2bf6e]">
         <div className="flex items-center gap-3 mb-4">
           <Crown className="w-7 h-7 text-[#f0cc78]" />
-          <h2 className="text-3xl font-clash text-[#f0cc78]">Top 8 Grand Finalists</h2>
+          <h2 className="text-3xl font-clash text-[#f0cc78]">Leaderboard</h2>
         </div>
         <div className="space-y-3">
-          {topEight.map((player) => (
+          {leaderboard.map((player) => (
             <div key={player.usn} className="rounded-lg border-2 border-[#d8b46b] bg-[#4a2d1b] p-4 flex flex-wrap items-center justify-between gap-3">
               <div>
                 <p className="text-[#f6da97] font-bold text-xl">#{player.rank} {player.name}</p>
@@ -115,20 +128,10 @@ const LeaderboardPage: React.FC = () => {
               </div>
               <div className="flex items-center gap-3">
                 <p className="text-[#f8de9c] font-bold">Score: {player.score}</p>
-                <span className="px-2 py-1 rounded border border-[#2b7a3f] bg-[#1f7f47] text-white text-xs font-bold">Grand Finalist</span>
+                {player.qualified ? (
+                  <span className="px-2 py-1 rounded border border-[#2b7a3f] bg-[#1f7f47] text-white text-xs font-bold">Grand Finalist</span>
+                ) : null}
               </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section className="card-clash">
-        <h3 className="text-2xl font-clash text-[#cdb58a] mb-4">Remaining Warriors</h3>
-        <div className="space-y-2">
-          {others.map((player) => (
-            <div key={player.usn} className="rounded-lg border border-[#6a4a31] bg-[#3d2718] p-3 flex items-center justify-between">
-              <p className="text-[#d4c2a0]">#{player.rank} {player.name} ({player.usn})</p>
-              <p className="text-[#cfb58a]">Score: {player.score}</p>
             </div>
           ))}
         </div>

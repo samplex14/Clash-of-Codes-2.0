@@ -5,8 +5,8 @@ export const dynamic = "force-dynamic";
 
 interface RegisterBody {
   usn?: string;
-  name?: string;
-  year?: number;
+  fullName?: string;
+  year?: "1st" | "2nd";
 }
 
 const normalizeUsn = (value: string): string => value.trim().toUpperCase();
@@ -14,30 +14,31 @@ const usnPattern = /^[A-Z0-9]{6,20}$/;
 
 export async function POST(
   request: NextRequest
-): Promise<NextResponse<{ success?: boolean; participant?: unknown; error?: string }>> {
+): Promise<NextResponse<{ success?: boolean; participant?: { usn: string; name: string; track: string }; error?: string }>> {
   try {
     const body = (await request.json()) as RegisterBody;
-    if (!body.usn || !body.name || typeof body.year !== "number") {
-      return NextResponse.json({ error: "usn, name, and year are required" }, { status: 400 });
-    }
 
-    if (body.year !== 1 && body.year !== 2) {
-      return NextResponse.json({ error: "year must be 1 or 2" }, { status: 400 });
-    }
+    const usn = normalizeUsn(String(body.usn ?? ""));
+    const fullName = String(body.fullName ?? "").trim();
+    const year = body.year;
 
-    const usn = normalizeUsn(body.usn);
-    const name = body.name.trim();
+    if (!usn || !fullName || !year) {
+      return NextResponse.json({ error: "usn, fullName, and year are required" }, { status: 400 });
+    }
 
     if (!usnPattern.test(usn)) {
       return NextResponse.json({ error: "Invalid USN format" }, { status: 400 });
     }
 
-    if (name.length < 2 || name.length > 60) {
+    if (fullName.length < 2 || fullName.length > 60) {
       return NextResponse.json({ error: "name must be between 2 and 60 characters" }, { status: 400 });
     }
 
-    const existing = await db.participant.findUnique({ where: { usn } });
+    if (year !== "1st" && year !== "2nd") {
+      return NextResponse.json({ error: "year must be '1st' or '2nd'" }, { status: 400 });
+    }
 
+    const existing = await db.participant.findUnique({ where: { usn } });
     if (existing) {
       return NextResponse.json({ error: "USN already registered" }, { status: 400 });
     }
@@ -45,8 +46,13 @@ export async function POST(
     const participant = await db.participant.create({
       data: {
         usn,
-        name,
-        track: body.year === 1 ? "1st_year" : "2nd_year"
+        name: fullName,
+        track: year === "1st" ? "1st_year" : "2nd_year"
+      },
+      select: {
+        usn: true,
+        name: true,
+        track: true
       }
     });
 

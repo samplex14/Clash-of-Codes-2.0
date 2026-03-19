@@ -22,6 +22,8 @@ module.exports = {
       },
       fontFamily: {
         clash: ['"Supercell-Magic"', '"Impact"', "sans-serif"],
+        cinzel: ["var(--font-cinzel)", "serif"],
+        "cinzel-decorative": ["var(--font-cinzel-decorative)", "cursive"],
         sans: ['"Inter"', "sans-serif"],
       },
       boxShadow: {
