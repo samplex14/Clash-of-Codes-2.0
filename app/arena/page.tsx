@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { ScrollText, Swords, X } from "lucide-react";
+import Image from "next/image";
+import { Crown, ScrollText, Swords, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import LoadingRadar from "@/components/ui/loading-radar";
@@ -86,11 +87,12 @@ const rules: RuleItem[] = [
   }
 ];
 
-const arenaSlides = [
-  "/assets/slides/slide1.jpeg",
+const BACKGROUND_IMAGES: string[] = [
+  "/assets/slides/slide1.webp",
   "/assets/slides/slide2.jpeg",
-  "/assets/slides/slide3.jpeg",
-  "/assets/slides/slide4.jpg"
+  "/assets/slides/slide3.jpg",
+  "/assets/slides/slide4.webp",
+  "/assets/slides/slide5.webp"
 ];
 
 const ArenaPage: React.FC = () => {
@@ -106,10 +108,30 @@ const ArenaPage: React.FC = () => {
   const [isStartSubmitting, setIsStartSubmitting] = useState<boolean>(false);
   const [score, setScore] = useState<number | null>(null);
   const [progress, setProgress] = useState<{ submitted: number; total: number }>({ submitted: 0, total: 0 });
-  const [currentSlide, setCurrentSlide] = useState<number>(0);
+  const [activeIndex, setActiveIndex] = useState<number>(0);
 
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const matchmakingPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const tournamentProgressPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      BACKGROUND_IMAGES.forEach((src) => {
+        const img = new window.Image();
+        img.src = src;
+      });
+    }
+  }, []);
+
+  useEffect(() => {
+    intervalRef.current = setInterval(() => {
+      setActiveIndex((prev) => (prev + 1) % BACKGROUND_IMAGES.length);
+    }, 5000);
+
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, []);
 
   const clearIntervalRef = (ref: React.MutableRefObject<ReturnType<typeof setInterval> | null>): void => {
     if (ref.current) {
@@ -176,17 +198,6 @@ const ArenaPage: React.FC = () => {
       window.clearInterval(timer);
     };
   }, []);
-
-  useEffect(() => {
-    if (arenaState !== "searching") return;
-    const slideTimer = window.setInterval(() => {
-      setCurrentSlide((prev) => (prev + 1) % arenaSlides.length);
-    }, 4000);
-    
-    return () => {
-      window.clearInterval(slideTimer);
-    };
-  }, [arenaState]);
 
   useEffect(() => {
     if (!participant?.usn) {
@@ -270,26 +281,36 @@ const ArenaPage: React.FC = () => {
   }
 
   return (
-    <div className={cn("min-h-screen w-full flex items-center justify-center px-4 relative", arenaState !== "searching" ? "arena-bg-texture" : "bg-[#1A1A1A] overflow-hidden")}>
-      
-      {/* Background Slider for Searching State */}
-      {arenaState === "searching" && (
-        <div className="absolute inset-0 z-0 pointer-events-none">
-          {arenaSlides.map((slide, index) => (
-            <div
-              key={slide}
-              className={cn(
-                "absolute inset-0 bg-cover bg-center transition-opacity duration-1000 ease-in-out",
-                index === currentSlide ? "opacity-100" : "opacity-0"
-              )}
-              style={{ backgroundImage: `url('${slide}')` }}
+    <div className="relative min-h-screen overflow-hidden">
+      {/* Global Background Slideshow */}
+      <div className="fixed inset-0 z-0 overflow-hidden">
+        {BACKGROUND_IMAGES.map((src, index) => (
+          <div
+            key={src}
+            className={cn(
+              "absolute inset-0 transition-opacity duration-[2000ms] ease-in-out",
+              index === activeIndex ? "opacity-100" : "opacity-0"
+            )}
+          >
+            <Image
+              src={src}
+              alt="Arena Background"
+              fill
+              className="object-cover"
+              priority={index === 0}
             />
-          ))}
-          {/* Dark overlay to make text readable */}
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
-        </div>
-      )}
+          </div>
+        ))}
+        {/* Dark Overlay */}
+        <div className="absolute inset-0 z-10 bg-black/55" />
+        {/* Vignette Gradient */}
+        <div 
+          className="absolute inset-0 z-11"
+          style={{ background: "linear-gradient(to bottom, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0.05) 40%, rgba(0,0,0,0.05) 60%, rgba(0,0,0,0.55) 100%)" }}
+        />
+      </div>
 
+      <div className="relative z-20 min-h-screen w-full flex items-center justify-center px-4">
       {/* Fixed positioning keeps Rules reachable above every arena state, even while polling transitions happen. */}
       <button
         type="button"
@@ -363,40 +384,79 @@ const ArenaPage: React.FC = () => {
       ) : null}
 
       {arenaState === "found" ? (
-        <div className="w-full max-w-5xl mx-auto rounded-2xl border-4 border-[#d7b56f] bg-[#5b3620]/95 shadow-[0_16px_0_0_#2d1b0f] p-8 md:p-12 text-center arena-reveal-in">
-          <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] gap-8 items-center">
-            <div className="rounded-xl border-2 border-[#f3d487] bg-[#4f3622] p-6">
-              <p className="text-[#e5c06e] text-sm uppercase tracking-widest mb-3">You</p>
-              <p className="text-2xl text-white font-bold">{participant.name}</p>
-              <p className="text-[#f4d17d] font-mono mt-2">{participant.usn}</p>
+        <div className="relative w-full max-w-5xl mx-auto rounded-3xl border border-white/20 bg-white/10 backdrop-blur-xl p-8 md:p-12 shadow-[0_8px_32px_0_rgba(0,0,0,0.37)] animate-in fade-in zoom-in duration-500">
+          {/* Glossy overlay */}
+          <div className="absolute inset-0 bg-gradient-to-b from-white/5 to-transparent pointer-events-none rounded-3xl" />
+
+          <div className="relative z-10 grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] gap-8 items-center">
+            
+            {/* YOU Card */}
+            <div className="group relative rounded-2xl border-2 border-yellow-500/30 bg-gradient-to-b from-yellow-900/60 to-yellow-900/40 p-8 flex flex-col items-center justify-center text-center backdrop-blur-md shadow-[inset_0_0_30px_rgba(234,179,8,0.1),0_0_15px_rgba(234,179,8,0.2)] transition-transform hover:scale-[1.02]">
+               <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 bg-yellow-950/80 border border-yellow-500/40 rounded-full text-yellow-200/80 text-[10px] font-bold tracking-[0.2em] uppercase backdrop-blur-sm">
+                 You
+               </div>
+               <h3 className="text-3xl md:text-5xl font-clash text-transparent bg-clip-text bg-gradient-to-b from-yellow-300 to-yellow-600 drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)] tracking-wider mb-2 mt-2">
+                 {participant.name}
+               </h3>
+               <p className="text-yellow-100/60 font-mono text-sm tracking-widest uppercase">{participant.usn}</p>
             </div>
 
-            <div className="relative w-28 h-28 rounded-full border-4 border-[#f0cb74] bg-[#3e2413] flex items-center justify-center arena-vs-pulse mx-auto">
-              <span className="text-4xl font-clash text-[#f5d36f]">VS</span>
-              <span className="arena-sword arena-sword-left">⚔</span>
-              <span className="arena-sword arena-sword-right">⚔</span>
+            {/* VS Badge */}
+            <div className="relative flex flex-col items-center justify-center gap-8 py-4">
+               <div className="relative w-28 h-28 flex items-center justify-center z-10">
+                  {/* Outer Ring */}
+                  <div className="absolute inset-0 rounded-full border-[3px] border-slate-300/40 bg-gradient-to-b from-slate-700 to-slate-900 shadow-2xl" />
+                  {/* Inner Content */}
+                  <div className="absolute inset-2 rounded-full border border-white/10 bg-slate-800 flex flex-col items-center justify-center shadow-inner overflow-hidden">
+                     {/* Shine */}
+                     <div className="absolute top-0 inset-x-0 h-1/2 bg-gradient-to-b from-white/10 to-transparent" />
+                     <Crown className="w-6 h-6 text-yellow-500 fill-yellow-500 drop-shadow-md mb-[-4px] relative z-10" />
+                     <span className="text-4xl font-clash font-bold bg-gradient-to-b from-yellow-200 to-yellow-600 bg-clip-text text-transparent drop-shadow-md relative z-10">VS</span>
+                  </div>
+               </div>
+
+               {/* Animated Loader Ring (Green) */}
+               <div className="relative w-20 h-20 flex items-center justify-center">
+                  {/* Static Rings */}
+                  <div className="absolute inset-0 rounded-full border-4 border-green-900/30" />
+                  <div className="absolute inset-2 rounded-full border-2 border-green-500/10" />
+                  
+                  {/* Spinning Segment */}
+                  <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-green-500 animate-spin" />
+                  <div className="absolute inset-2 rounded-full border-2 border-transparent border-b-green-400/50 animate-spin-slow-reverse" />
+                  
+                  {/* Center Pulse */}
+                  <div className="w-3 h-3 rounded-full bg-green-500 shadow-[0_0_10px_#22c55e] animate-pulse" />
+               </div>
             </div>
 
-            <div className="rounded-xl border-2 border-[#e88f7a] bg-[#5d2b23] p-6">
-              <p className="text-[#f1b2a4] text-sm uppercase tracking-widest mb-3">Enemy</p>
-              <p className="text-2xl text-white font-bold">{opponent?.name ?? "Unknown Raider"}</p>
-              <p className="text-[#f8c9bc] font-mono mt-2">{opponent?.usn ?? "UNKNOWN"}</p>
+            {/* ENEMY Card */}
+            <div className="group relative rounded-2xl border-2 border-red-500/30 bg-gradient-to-b from-red-900/60 to-red-900/40 p-8 flex flex-col items-center justify-center text-center backdrop-blur-md shadow-[inset_0_0_30px_rgba(239,68,68,0.1),0_0_15px_rgba(239,68,68,0.2)] transition-transform hover:scale-[1.02]">
+               <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 bg-red-950/80 border border-red-500/40 rounded-full text-red-200/80 text-[10px] font-bold tracking-[0.2em] uppercase backdrop-blur-sm">
+                 Enemy
+               </div>
+               <h3 className="text-3xl md:text-5xl font-clash text-transparent bg-clip-text bg-gradient-to-b from-red-300 to-red-600 drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)] tracking-wider mb-2 mt-2">
+                 {opponent?.name ?? "Unknown"}
+               </h3>
+               <p className="text-red-100/60 font-mono text-sm tracking-widest uppercase">{opponent?.usn ?? "???"}</p>
             </div>
           </div>
 
-          <div className="mt-10 flex flex-col items-center gap-4">
-            <LoadingRadar />
-
-            <button
-              type="button"
-              onClick={() => {
-                void handleStartBattle();
-              }}
-              disabled={isStartSubmitting || hasStartedBattle}
-              className="min-w-[240px] py-4 px-6 border-2 border-[#f0cb74] bg-[#4a7c3f] hover:bg-[#3d6b34] text-[#f4d17d] font-bold rounded-xl shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {hasStartedBattle ? "Battle Horn Sounded" : "Sound the Battle Horn"}
-            </button>
+          {/* Action Button */}
+          <div className="mt-8 flex justify-center relative z-20">
+             <button
+               type="button"
+               onClick={() => void handleStartBattle()}
+               disabled={isStartSubmitting || hasStartedBattle}
+               className="group relative min-w-[320px] bg-gradient-to-b from-[#355e2d] to-[#254220] border-[3px] border-[#5db052] rounded-xl py-4 flex items-center justify-center shadow-[0_6px_0_#1a2e16,0_15px_20px_rgba(0,0,0,0.4)] active:shadow-[0_2px_0_#1a2e16] active:translate-y-1 transition-all duration-100 ease-out disabled:opacity-50 disabled:grayscale"
+             >
+                 {/* Internal Gloss */}
+                 <div className="absolute inset-0 rounded-lg bg-gradient-to-b from-white/10 to-transparent pointer-events-none" />
+                 
+                 <span className="font-clash text-xl text-white drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)] tracking-[0.15em] uppercase">
+                   {hasStartedBattle ? "Battling..." : "Sound the Battle Horn"}
+                 </span>
+             </button>
           </div>
         </div>
       ) : null}
@@ -436,6 +496,7 @@ const ArenaPage: React.FC = () => {
           </div>
         </div>
       ) : null}
+      </div>
     </div>
   );
 };

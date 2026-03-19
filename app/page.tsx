@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useParticipant } from "@/components/providers/ParticipantProvider";
@@ -53,9 +53,11 @@ export default function HomePage() {
   };
 
   return (
-    <div 
-      className="min-h-screen flex items-center justify-center p-4 relative font-clash overflow-hidden bg-cover bg-center bg-no-repeat"
-      style={{ backgroundImage: "url('/assets/newbg.png')" }}
+    <div
+      className="min-h-screen w-screen flex items-center justify-center p-4 relative font-clash overflow-hidden bg-cover bg-center bg-no-repeat"
+      style={{
+        backgroundImage: "url('/assets/newbg.png')",
+      }}
     >
       {/* The main glassmorphic container */}
       <div className="relative z-10 w-[95%] max-w-[800px] backdrop-blur-md bg-white/10 border-[1.5px] border-white/20 rounded-3xl p-10 md:p-14 flex flex-col md:flex-row gap-8 shadow-[0_8px_32px_0_rgba(31,38,135,0.37)]">
@@ -112,7 +114,7 @@ export default function HomePage() {
                     : "bg-white/5 text-slate-800 border border-white/10 hover:bg-white/10"
                 )}
               >
-                1ST YEAR
+                <span className="year-toggle-label">1ST YEAR</span>
               </button>
               <button
                 type="button"
@@ -124,7 +126,7 @@ export default function HomePage() {
                     : "bg-white/5 text-slate-800 border border-white/10 hover:bg-white/10"
                 )}
               >
-                2ND YEAR
+                <span className="year-toggle-label">2ND YEAR</span>
               </button>
             </div>
 
