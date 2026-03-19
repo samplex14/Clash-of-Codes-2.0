@@ -3,12 +3,12 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { ScrollText, Swords, X } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { cn } from "@/lib/utils";
 import LoadingRadar from "@/components/ui/loading-radar";
 import Phase1QuestionPanel, { type Phase1QuestionItem } from "@/components/Phase1QuestionPanel";
 import { useParticipant } from "@/components/providers/ParticipantProvider";
 import { apiRequest } from "@/lib/api";
-
-type ArenaState = "searching" | "found" | "battle" | "submitted";
+import type { MatchmakingState, TournamentStatusResponse } from "@/types";
 
 interface MatchmakingResponse {
   status: "matched" | "waiting";
@@ -28,13 +28,6 @@ interface MatchmakingStatusResponse {
 
 interface QuestionResponse {
   questions: Phase1QuestionItem[];
-}
-
-interface TournamentProgressResponse {
-  submitted: number;
-  total: number;
-  allDone: boolean;
-  leaderboardVisible: boolean;
 }
 
 interface RuleItem {
@@ -93,11 +86,18 @@ const rules: RuleItem[] = [
   }
 ];
 
+const arenaSlides = [
+  "/assets/slides/slide1.jpeg",
+  "/assets/slides/slide2.jpeg",
+  "/assets/slides/slide3.jpeg",
+  "/assets/slides/slide4.jpg"
+];
+
 const ArenaPage: React.FC = () => {
   const router = useRouter();
   const { participant, updateParticipant } = useParticipant();
 
-  const [arenaState, setArenaState] = useState<ArenaState>("searching");
+  const [arenaState, setArenaState] = useState<MatchmakingState>("searching");
   const [showRules, setShowRules] = useState<boolean>(false);
   const [messageIndex, setMessageIndex] = useState<number>(0);
   const [opponent, setOpponent] = useState<{ name: string; usn: string } | null>(null);
@@ -106,6 +106,7 @@ const ArenaPage: React.FC = () => {
   const [isStartSubmitting, setIsStartSubmitting] = useState<boolean>(false);
   const [score, setScore] = useState<number | null>(null);
   const [progress, setProgress] = useState<{ submitted: number; total: number }>({ submitted: 0, total: 0 });
+  const [currentSlide, setCurrentSlide] = useState<number>(0);
 
   const matchmakingPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const tournamentProgressPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -166,24 +167,6 @@ const ArenaPage: React.FC = () => {
     }, 3000);
   };
 
-  const startTournamentProgressPolling = (): void => {
-    clearIntervalRef(tournamentProgressPollRef);
-    tournamentProgressPollRef.current = setInterval(() => {
-      void (async () => {
-        try {
-          const response = await apiRequest<TournamentProgressResponse>("/api/tournament/status");
-          setProgress({ submitted: response.submitted, total: response.total });
-          if (response.allDone || response.leaderboardVisible) {
-            clearIntervalRef(tournamentProgressPollRef);
-            router.push("/leaderboard");
-          }
-        } catch {
-          // Retry on next polling cycle.
-        }
-      })();
-    }, 5000);
-  };
-
   useEffect(() => {
     const timer = window.setInterval(() => {
       setMessageIndex((previous) => (previous + 1) % searchingLines.length);
@@ -193,6 +176,17 @@ const ArenaPage: React.FC = () => {
       window.clearInterval(timer);
     };
   }, []);
+
+  useEffect(() => {
+    if (arenaState !== "searching") return;
+    const slideTimer = window.setInterval(() => {
+      setCurrentSlide((prev) => (prev + 1) % arenaSlides.length);
+    }, 4000);
+    
+    return () => {
+      window.clearInterval(slideTimer);
+    };
+  }, [arenaState]);
 
   useEffect(() => {
     if (!participant?.usn) {
@@ -207,6 +201,44 @@ const ArenaPage: React.FC = () => {
       clearIntervalRef(tournamentProgressPollRef);
     };
   }, [participant?.usn, router]);
+
+  useEffect(() => {
+    if (arenaState !== "waiting") {
+      clearIntervalRef(tournamentProgressPollRef);
+      return;
+    }
+
+    let isActive = true;
+
+    const pollTournamentStatus = async (): Promise<void> => {
+      try {
+        const response = await apiRequest<TournamentStatusResponse>("/api/tournament/status");
+        if (!isActive) {
+          return;
+        }
+
+        setProgress({ submitted: response.submitted, total: response.total });
+
+        if (response.leaderboardVisible || response.allDone) {
+          clearIntervalRef(tournamentProgressPollRef);
+          router.push("/leaderboard");
+        }
+      } catch {
+        // Retry on next cycle.
+      }
+    };
+
+    void pollTournamentStatus();
+
+    tournamentProgressPollRef.current = setInterval(() => {
+      void pollTournamentStatus();
+    }, 4000);
+
+    return () => {
+      isActive = false;
+      clearIntervalRef(tournamentProgressPollRef);
+    };
+  }, [arenaState, router]);
 
   const handleStartBattle = async (): Promise<void> => {
     if (!participant?.usn || isStartSubmitting || hasStartedBattle) {
@@ -228,8 +260,7 @@ const ArenaPage: React.FC = () => {
   const handleSubmitted = (battleScore: number): void => {
     setScore(battleScore);
     updateParticipant({ phase1Score: battleScore });
-    setArenaState("submitted");
-    startTournamentProgressPolling();
+    setArenaState("waiting");
   };
 
   const activeMessage = useMemo<string>(() => searchingLines[messageIndex], [messageIndex]);
@@ -239,7 +270,26 @@ const ArenaPage: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center px-4 arena-bg-texture">
+    <div className={cn("min-h-screen w-full flex items-center justify-center px-4 relative", arenaState !== "searching" ? "arena-bg-texture" : "bg-[#1A1A1A] overflow-hidden")}>
+      
+      {/* Background Slider for Searching State */}
+      {arenaState === "searching" && (
+        <div className="absolute inset-0 z-0 pointer-events-none">
+          {arenaSlides.map((slide, index) => (
+            <div
+              key={slide}
+              className={cn(
+                "absolute inset-0 bg-cover bg-center transition-opacity duration-1000 ease-in-out",
+                index === currentSlide ? "opacity-100" : "opacity-0"
+              )}
+              style={{ backgroundImage: `url('${slide}')` }}
+            />
+          ))}
+          {/* Dark overlay to make text readable */}
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+        </div>
+      )}
+
       {/* Fixed positioning keeps Rules reachable above every arena state, even while polling transitions happen. */}
       <button
         type="button"
@@ -296,8 +346,8 @@ const ArenaPage: React.FC = () => {
       ) : null}
 
       {arenaState === "searching" ? (
-        <div className="w-full max-w-3xl mx-auto rounded-2xl border-4 border-[#d7b56f] bg-[#6f4628]/95 shadow-[0_16px_0_0_#2d1b0f] p-8 md:p-12 text-center">
-          <h1 className="text-4xl md:text-5xl text-[#f4d17d] font-serif tracking-wide mb-8">Entering the Arena...</h1>
+        <div className="relative z-10 w-full max-w-3xl mx-auto rounded-2xl border-4 border-[#d7b56f] bg-[#6f4628]/80 backdrop-blur-md shadow-[0_16px_0_0_#2d1b0f] p-8 md:p-12 text-center">
+          <h1 className="text-4xl md:text-5xl text-[#f4d17d] font-clash tracking-wide mb-8">Entering the Arena...</h1>
           <div className="flex justify-center mb-8">
             <LoadingRadar />
           </div>
@@ -353,18 +403,37 @@ const ArenaPage: React.FC = () => {
 
       {arenaState === "battle" ? <Phase1QuestionPanel usn={participant.usn} questions={battleQuestions} onSubmitted={handleSubmitted} /> : null}
 
-      {arenaState === "submitted" ? (
-        <div className="w-full max-w-3xl rounded-2xl border-4 border-[#d7b56f] bg-[#5b3620]/95 shadow-[0_16px_0_0_#2d1b0f] p-8 md:p-12 text-center">
-          <div className="flex justify-center mb-6">
-            <LoadingRadar />
+      {arenaState === "waiting" ? (
+        <div className="w-full min-h-screen flex items-center justify-center px-4 py-10 bg-[radial-gradient(circle_at_top,#4a2b1a_0%,#26160f_60%,#1b110b_100%)]">
+          <div className="w-full max-w-4xl rounded-[28px] border-[6px] border-[#d6ad5f] bg-gradient-to-b from-[#8b5a33] to-[#5f3c22] shadow-[0_20px_0_0_#2d1b0f,0_0_28px_rgba(214,173,95,0.2)] p-8 md:p-12 text-center">
+            <div className="flex justify-center mb-7">
+              <LoadingRadar />
+            </div>
+
+            <h2 className="text-3xl md:text-5xl text-[#f2c96f] font-cinzel mb-6">You Have Fought Bravely, Warrior.</h2>
+
+            <div className="inline-flex px-5 py-2 rounded-full border-2 border-[#f0cb74] bg-[#3e2413] text-[#f5d98d] font-bold mb-6">
+              Your Battle Score: {score ?? 0}
+            </div>
+
+            <p className="text-[#d9bf8e] text-lg animate-pulse mb-8">Waiting for other warriors to finish the battle...</p>
+
+            <div className="flex items-end justify-center gap-3 mb-6">
+              <span className="text-4xl md:text-6xl leading-none text-[#f2cd78] font-cinzel">{progress.submitted}</span>
+              <span className="text-3xl md:text-4xl leading-none text-[#cbb083] font-cinzel">/</span>
+              <span className="text-4xl md:text-6xl leading-none text-[#f2cd78] font-cinzel">{progress.total}</span>
+              <span className="text-lg md:text-2xl leading-none text-[#cbb083] font-cinzel pb-1">Warriors Finished</span>
+            </div>
+
+            <div className="max-w-2xl mx-auto rounded-full border-2 border-[#d2ad61] bg-[#2c1b12] p-1.5 overflow-hidden">
+              <div
+                className="h-6 rounded-full bg-gradient-to-r from-[#2f7f2d] to-[#44b645] transition-all duration-500"
+                style={{
+                  width: `${progress.total > 0 ? Math.min(100, (progress.submitted / progress.total) * 100) : 0}%`
+                }}
+              />
+            </div>
           </div>
-          <p className="text-2xl text-[#f4d17d] mb-4">You have fought bravely, Warrior. Waiting for others to finish the battle...</p>
-          <div className="inline-flex px-4 py-2 rounded-full border-2 border-[#f0cb74] bg-[#3e2413] text-[#f5d98d] font-bold mb-4">
-            Your Battle Score: {score ?? 0}
-          </div>
-          <p className="text-[#e9d5ac]">
-            {progress.submitted} out of {progress.total} warriors have finished
-          </p>
         </div>
       ) : null}
     </div>

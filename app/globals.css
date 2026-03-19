@@ -4,7 +4,9 @@
 
 @font-face {
   font-family: "Supercell-Magic";
-  src: local("Impact");
+  src: url("/assets/Supercell-Magic.ttf") format("truetype");
+  font-weight: normal;
+  font-style: normal;
 }
 
 @layer base {

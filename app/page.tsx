@@ -3,9 +3,11 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { useParticipant } from "@/components/providers/ParticipantProvider";
 
 export default function HomePage() {
   const router = useRouter();
+  const { login } = useParticipant();
   const [usn, setUsn] = useState("");
   const [fullName, setFullName] = useState("");
   // In this glassmorphic design, a toggle represents the 1st/2nd year. 
@@ -37,11 +39,12 @@ export default function HomePage() {
         body: JSON.stringify({ usn, fullName, year: selectedYear }),
       });
 
+      const data = await res.json();
       if (!res.ok) {
-        const data = await res.json();
         throw new Error(data.error || "Failed to enlist.");
       }
 
+      login(data.participant);
       router.push("/arena");
     } catch (err: any) {
       setErrors({ api: err.message });

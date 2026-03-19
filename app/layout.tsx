@@ -35,7 +35,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${fontSans.variable} ${fontCinzelDecorative.variable} ${fontCinzel.variable} font-sans antialiased`}
+        className={`${fontSans.variable} ${fontCinzelDecorative.variable} ${fontCinzel.variable} font-clash antialiased`}
       >
         <AppProviders>{children}</AppProviders>
       </body>
