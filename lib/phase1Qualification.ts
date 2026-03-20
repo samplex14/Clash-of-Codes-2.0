@@ -1,6 +1,26 @@
 import { db } from "./db";
+import type { Prisma } from "@prisma/client";
 
 export const TOP_QUALIFIED_COUNT = 8;
+
+type SubmittedParticipantCandidate = Prisma.ParticipantGetPayload<{
+  include: {
+    session: {
+      select: {
+        hasSubmitted: true;
+        submittedAt: true;
+      };
+    };
+  };
+}>;
+
+export type SubmittedParticipant = SubmittedParticipantCandidate & {
+  phase1Score: number;
+  session: {
+    hasSubmitted: true;
+    submittedAt: Date | null;
+  };
+};
 
 export interface RankedParticipant {
   id: number;
@@ -11,25 +31,49 @@ export interface RankedParticipant {
   rank: number;
 }
 
+const isSubmittedParticipantRecord = (value: SubmittedParticipantCandidate): value is SubmittedParticipant => {
+  return value.session?.hasSubmitted === true && Number.isInteger(value.phase1Score);
+};
+
+export const getSubmittedParticipants = async (): Promise<SubmittedParticipant[]> => {
+  // Submitted-only leaderboard rule: only mapped participants with hasSubmitted=true.
+  // phase1Score is non-null by schema and additionally validated as an integer below.
+  const participants = await db.participant.findMany({
+    where: {
+      isMapped: true,
+      phase1Score: { gte: 0 },
+      session: {
+        is: {
+          hasSubmitted: true
+        }
+      }
+    },
+    include: {
+      session: {
+        select: {
+          hasSubmitted: true,
+          submittedAt: true
+        }
+      }
+    },
+    orderBy: [{ phase1Score: "desc" }, { submittedAt: "asc" }, { id: "asc" }]
+  });
+
+  return participants.filter(isSubmittedParticipantRecord);
+};
+
 export const computePhase1Qualification = async (): Promise<{
   qualifiedCount: number;
   submittedCount: number;
   ranked: RankedParticipant[];
 }> => {
-  const submitted = await db.participant.findMany({
-    where: {
-      submittedAt: {
-        not: null
-      }
-    },
-    orderBy: [
-      { phase1Score: "desc" },
-      { submittedAt: "asc" },
-      { id: "asc" }
-    ]
-  });
+  // Submitted-only leaderboard rule: ranking and qualification are computed from eligible submitted participants only.
+  const submitted = await getSubmittedParticipants();
 
   await db.participant.updateMany({
+    where: {
+      isMapped: true
+    },
     data: {
       qualified: false
     }

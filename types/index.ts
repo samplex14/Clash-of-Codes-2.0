@@ -17,11 +17,14 @@ export interface LeaderboardParticipant {
 	usn: string;
 	phase1Score: number;
 	qualified: boolean;
+	hasSubmitted: true;
 	submittedAt: string;
 }
 
 export interface LeaderboardResponse {
 	visible: boolean;
 	participants: LeaderboardParticipant[];
+	totalEligible: number;
+	totalRegistered: number;
 	message?: string;
 }

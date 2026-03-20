@@ -18,8 +18,13 @@ export async function GET(
     const submitted = await db.participant.count({
       where: {
         isMapped: true,
-        submittedAt: {
-          not: null
+        phase1Score: {
+          gte: 0
+        },
+        session: {
+          is: {
+            hasSubmitted: true
+          }
         }
       }
     });
@@ -69,11 +74,17 @@ export async function GET(
           return;
         }
 
+        // Submitted-only leaderboard rule: qualification candidates must be fully submitted and scored.
         const rankedParticipants = await tx.participant.findMany({
           where: {
             isMapped: true,
-            submittedAt: {
-              not: null
+            phase1Score: {
+              gte: 0
+            },
+            session: {
+              is: {
+                hasSubmitted: true
+              }
             }
           },
           orderBy: [{ phase1Score: "desc" }, { submittedAt: "asc" }, { id: "asc" }],

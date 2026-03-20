@@ -147,3 +147,47 @@ export const getConfirmedAnswersMap = (value: unknown): Record<string, string> =
 
   return result;
 };
+
+export const isSessionFullySubmitted = async (inputUsn: string): Promise<boolean> => {
+  // Submitted-only leaderboard rule helper: rely on session.hasSubmitted in DB, not client-side progress.
+  const usn = normalizeUsn(inputUsn);
+  const session = await db.participantSession.findUnique({
+    where: { usn },
+    select: { hasSubmitted: true }
+  });
+
+  return session?.hasSubmitted === true;
+};
+
+export const getSessionSubmissionStats = async (
+  inputUsn: string
+): Promise<{ hasSubmitted: boolean; phase1Score: number | null; submittedAt: Date | null }> => {
+  // Submitted-only leaderboard rule helper: expose durable submit+score state for idempotency and verification.
+  const usn = normalizeUsn(inputUsn);
+  const session = await db.participantSession.findUnique({
+    where: { usn },
+    select: {
+      hasSubmitted: true,
+      submittedAt: true,
+      participant: {
+        select: {
+          phase1Score: true
+        }
+      }
+    }
+  });
+
+  if (!session) {
+    return {
+      hasSubmitted: false,
+      phase1Score: null,
+      submittedAt: null
+    };
+  }
+
+  return {
+    hasSubmitted: session.hasSubmitted,
+    phase1Score: session.participant?.phase1Score ?? null,
+    submittedAt: session.submittedAt
+  };
+};

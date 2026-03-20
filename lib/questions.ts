@@ -1,5 +1,6 @@
 import type { Prisma } from "@prisma/client";
 import type { Option } from "@/types/question";
+import { db } from "@/lib/db";
 
 export const parseIncomingOptions = (options: unknown): Option[] => {
   if (!Array.isArray(options)) {
@@ -36,4 +37,15 @@ export const toPrismaJson = (options: Option[]): Prisma.JsonArray => {
     optionId: option.optionId,
     optionText: option.optionText
   })) as Prisma.JsonArray;
+};
+
+export const hasParticipantSubmitted = async (usn: string): Promise<boolean> => {
+  // Submitted-only leaderboard rule helper: DB is the source of truth for completion status.
+  const normalizedUsn = usn.trim().toUpperCase();
+  const session = await db.participantSession.findUnique({
+    where: { usn: normalizedUsn },
+    select: { hasSubmitted: true }
+  });
+
+  return session?.hasSubmitted === true;
 };

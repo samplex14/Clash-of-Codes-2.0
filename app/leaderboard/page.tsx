@@ -9,6 +9,8 @@ type ViewState = "loading" | "holding" | "ready";
 
 const LeaderboardPage: React.FC = () => {
   const [players, setPlayers] = useState<LeaderboardParticipant[]>([]);
+  const [totalEligible, setTotalEligible] = useState<number>(0);
+  const [totalRegistered, setTotalRegistered] = useState<number>(0);
   const [viewState, setViewState] = useState<ViewState>("loading");
 
   const fetchLeaderboard = async (): Promise<LeaderboardResponse | null> => {
@@ -41,7 +43,29 @@ const LeaderboardPage: React.FC = () => {
         return;
       }
 
-      setPlayers(data.participants);
+      // Submitted-only leaderboard rule safety net: keep only completed submissions before rendering.
+      const eligibleParticipants = data.participants.filter(
+        (participant) =>
+          participant.hasSubmitted === true &&
+          participant.phase1Score !== null &&
+          Number.isInteger(participant.phase1Score)
+      );
+
+      setPlayers(eligibleParticipants);
+      setTotalEligible(eligibleParticipants.length);
+
+      const statusResponse = await fetch("/api/tournament/status", {
+        method: "GET",
+        cache: "no-store"
+      });
+
+      if (statusResponse.ok) {
+        const status = (await statusResponse.json()) as TournamentStatusResponse;
+        setTotalRegistered(status.total);
+      } else {
+        setTotalRegistered(data.totalRegistered);
+      }
+
       setViewState("ready");
     } catch {
       setViewState("holding");
@@ -73,6 +97,8 @@ const LeaderboardPage: React.FC = () => {
           if (status.leaderboardVisible || status.allDone) {
             await loadLeaderboard();
           }
+
+          setTotalRegistered(status.total);
         } catch {
           // continue polling
         }
@@ -142,6 +168,17 @@ const LeaderboardPage: React.FC = () => {
           <p className="mt-3 text-[#d6be92] tracking-[0.18em] uppercase text-sm md:text-base">
             The strongest coders have emerged from the battlefield.
           </p>
+          <div className="mt-6 flex items-center justify-center gap-5 flex-wrap">
+            <span className="px-4 py-2 rounded-full border border-[#d9b86c] bg-[#2a1a12]/80 text-[#f1cd79] font-cinzel text-sm md:text-base">
+              {totalEligible} Warriors Completed
+            </span>
+            <span className="px-4 py-2 rounded-full border border-[#9d7a47] bg-[#2a1a12]/80 text-[#d6be92] font-cinzel text-sm md:text-base">
+              {totalRegistered} Total Registered
+            </span>
+          </div>
+          <div className="mt-4 inline-flex items-center rounded-full border border-[#9d7a47] bg-[#2a1a12]/85 px-4 py-2 text-xs md:text-sm text-[#d6be92]">
+            Only participants who completed all questions are shown.
+          </div>
         </header>
 
         <section className="rounded-3xl border-4 border-[#d9b86c] bg-[#5b3923]/95 shadow-[0_16px_0_0_#2d1b0f] p-6 md:p-8">

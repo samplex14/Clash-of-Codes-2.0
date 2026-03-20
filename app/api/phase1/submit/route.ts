@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { ensureParticipantSession, getConfirmedAnswersMap } from "@/lib/phase1Session";
+import {
+  ensureParticipantSession,
+  getConfirmedAnswersMap,
+  getSessionSubmissionStats,
+  isSessionFullySubmitted
+} from "@/lib/phase1Session";
 import { getOrCreateTournamentState } from "@/lib/tournamentState";
 
 export const dynamic = "force-dynamic";
@@ -16,6 +21,8 @@ const normalizeUsn = (value: string): string => value.trim().toUpperCase();
 export async function POST(
   request: NextRequest
 ): Promise<NextResponse<{ success?: boolean; score?: number; total?: number; error?: string }>> {
+  let normalizedUsn: string | null = null;
+
   try {
     const body = (await request.json()) as SubmitBody;
     if (!body.usn || !body.lastQuestionId || !body.lastSelectedOptionId) {
@@ -28,19 +35,24 @@ export async function POST(
     }
 
     const usn = normalizeUsn(body.usn);
+    normalizedUsn = usn;
     const participant = await db.participant.findUnique({ where: { usn } });
 
     if (!participant) {
       return NextResponse.json({ error: "Participant not found" }, { status: 404 });
     }
 
-    if (participant.submittedAt) {
-      return NextResponse.json({ error: "Already submitted" }, { status: 409 });
-    }
-
     const session = await ensureParticipantSession(usn);
-    if (session.hasSubmitted) {
-      return NextResponse.json({ error: "Already submitted" }, { status: 409 });
+    const existingSubmissionStats = await getSessionSubmissionStats(usn);
+
+    // Submitted-only leaderboard rule: submit endpoint is idempotent and returns persisted score for already-submitted sessions.
+    if (existingSubmissionStats.hasSubmitted || (await isSessionFullySubmitted(usn))) {
+      const totalQuestions = Array.isArray(session.shuffledQuestionIds) ? session.shuffledQuestionIds.length : 0;
+      return NextResponse.json({
+        success: true,
+        score: existingSubmissionStats.phase1Score ?? participant.phase1Score,
+        total: totalQuestions
+      });
     }
 
     const shuffledQuestionIds = Array.isArray(session.shuffledQuestionIds)
@@ -115,13 +127,31 @@ export async function POST(
       }
     });
 
+    // Submitted-only leaderboard rule: verify submit and score persistence before returning success.
+    const persistedStats = await getSessionSubmissionStats(usn);
+    if (!persistedStats.hasSubmitted || persistedStats.phase1Score === null || !Number.isInteger(persistedStats.phase1Score)) {
+      console.error("Submission persistence mismatch", {
+        usn,
+        hasSubmitted: persistedStats.hasSubmitted,
+        phase1Score: persistedStats.phase1Score
+      });
+      return NextResponse.json({ error: "Submission persistence verification failed" }, { status: 500 });
+    }
+
     return NextResponse.json({
       success: true,
-      score,
+      score: persistedStats.phase1Score,
       total: shuffledQuestionIds.length
     });
   } catch (error: unknown) {
     if (error instanceof Error && error.message === "Already submitted") {
+      if (normalizedUsn) {
+        const persistedStats = await getSessionSubmissionStats(normalizedUsn);
+        if (persistedStats.hasSubmitted && persistedStats.phase1Score !== null) {
+          return NextResponse.json({ success: true, score: persistedStats.phase1Score, total: 0 });
+        }
+      }
+
       return NextResponse.json({ error: "Already submitted" }, { status: 409 });
     }
 

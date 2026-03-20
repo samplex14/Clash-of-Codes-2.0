@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getOrCreateTournamentState } from "@/lib/tournamentState";
-import { TOP_QUALIFIED_COUNT } from "@/lib/phase1Qualification";
+import { getSubmittedParticipants, TOP_QUALIFIED_COUNT } from "@/lib/phase1Qualification";
 import type { LeaderboardResponse } from "@/types";
 
 export const dynamic = "force-dynamic";
@@ -15,31 +15,41 @@ export async function GET(
       return NextResponse.json({ visible: false, message: "Tournament not yet complete" }, { status: 403 });
     }
 
-    const participants = await db.participant.findMany({
+    // Submitted-only leaderboard rule: fetch from shared helper that enforces DB-level eligibility.
+    const participants = await getSubmittedParticipants();
+
+    // Safety net: API response also re-checks the submitted-only rule before serialization.
+    const eligible = participants.filter(
+      (participant) =>
+        participant.session.hasSubmitted === true &&
+        participant.phase1Score !== null &&
+        Number.isInteger(participant.phase1Score)
+    );
+
+    const totalRegistered = await db.participant.count({
       where: {
         isMapped: true
-      },
-      orderBy: [{ phase1Score: "desc" }, { submittedAt: "asc" }, { id: "asc" }],
-      select: {
-        name: true,
-        usn: true,
-        phase1Score: true,
-        submittedAt: true
       }
     });
 
-    const rankedParticipants = participants.map((participant, index) => ({
+    const rankedParticipants = eligible.map((participant, index) => ({
       rank: index + 1,
       name: participant.name,
       usn: participant.usn,
       phase1Score: participant.phase1Score,
+      // Leaderboard rule: top 8 are qualified, all others are eliminated.
       qualified: index < TOP_QUALIFIED_COUNT,
-      submittedAt: participant.submittedAt ? participant.submittedAt.toISOString() : new Date(0).toISOString()
+      hasSubmitted: true as const,
+      submittedAt: participant.session.submittedAt
+        ? participant.session.submittedAt.toISOString()
+        : new Date(0).toISOString()
     }));
 
     return NextResponse.json({
       visible: true,
-      participants: rankedParticipants
+      participants: rankedParticipants,
+      totalEligible: rankedParticipants.length,
+      totalRegistered
     });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Unexpected error";

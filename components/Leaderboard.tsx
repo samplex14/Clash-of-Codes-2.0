@@ -1,4 +1,5 @@
 import React from "react";
+import LoadingRadar from "@/components/ui/loading-radar";
 
 export interface LeaderboardPlayer {
   rank?: number;
@@ -9,6 +10,7 @@ export interface LeaderboardPlayer {
   qualified?: boolean;
   phase1Score?: number;
   phase1Qualified?: boolean;
+  hasSubmitted?: true;
 }
 
 interface LeaderboardProps {
@@ -17,10 +19,20 @@ interface LeaderboardProps {
 }
 
 const Leaderboard: React.FC<LeaderboardProps> = ({ players, title = "Phase 1 Leaderboard" }) => {
-  if (players.length === 0) {
+  // Submitted-only leaderboard rule safety net: never render rows that are not fully submitted.
+  const completedPlayers = players.filter(
+    (player) => player.hasSubmitted === true && typeof player.phase1Score === "number" && Number.isInteger(player.phase1Score)
+  );
+
+  if (completedPlayers.length === 0) {
     return (
       <div className="card-clash p-8 text-center">
-        <h3 className="text-2xl font-clash text-gray-400">No data available yet</h3>
+        <div className="flex justify-center mb-4">
+          <LoadingRadar />
+        </div>
+        <h3 className="text-xl font-clash text-[#d6be92]">
+          No warriors have completed the battle yet. The leaderboard will populate as submissions arrive.
+        </h3>
       </div>
     );
   }
@@ -28,6 +40,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ players, title = "Phase 1 Lea
   return (
     <div className="card-clash w-full overflow-hidden">
       <h3 className="text-3xl font-clash text-center text-clash-gold mb-6 border-b-2 border-clash-wood pb-4">{title}</h3>
+      <p className="text-center text-sm text-[#d6be92] mb-4">Showing completed submissions only</p>
 
       <div className="overflow-x-auto">
         <table className="w-full text-left border-collapse">
@@ -41,7 +54,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ players, title = "Phase 1 Lea
             </tr>
           </thead>
           <tbody className="text-white">
-            {players.map((player, index) => {
+            {completedPlayers.map((player, index) => {
               const rank = player.rank ?? index + 1;
               const score = player.score ?? player.phase1Score ?? 0;
               const isQualified = player.qualified ?? player.phase1Qualified ?? false;
