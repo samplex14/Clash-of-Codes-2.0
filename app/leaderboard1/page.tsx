@@ -7,14 +7,14 @@ import type { LeaderboardParticipant, LeaderboardResponse, TournamentStatusRespo
 
 type ViewState = "loading" | "holding" | "ready";
 
-const LeaderboardPage: React.FC = () => {
+const Leaderboard1Page: React.FC = () => {
   const [players, setPlayers] = useState<LeaderboardParticipant[]>([]);
   const [totalEligible, setTotalEligible] = useState<number>(0);
   const [totalRegistered, setTotalRegistered] = useState<number>(0);
   const [viewState, setViewState] = useState<ViewState>("loading");
 
   const fetchLeaderboard = async (): Promise<LeaderboardResponse | null> => {
-    const response = await fetch("/api/leaderboard?year=2nd", {
+    const response = await fetch("/api/leaderboard1", {
       method: "GET",
       cache: "no-store"
     });
@@ -43,7 +43,6 @@ const LeaderboardPage: React.FC = () => {
         return;
       }
 
-      // Submitted-only leaderboard rule safety net: keep only completed submissions before rendering.
       const eligibleParticipants = data.participants.filter(
         (participant) =>
           participant.hasSubmitted === true &&
@@ -163,7 +162,7 @@ const LeaderboardPage: React.FC = () => {
               textShadow: "0 0 12px rgba(139,92,246,0.6), 2px 2px 0 #2e2e3a, 4px 4px 0 #1a1a2e, 6px 6px 6px rgba(0,0,0,0.75)"
             }}
           >
-            SECOND YEAR STANDINGS
+            FIRST YEAR STANDINGS
           </h1>
           <p className="mt-3 text-[#d6be92] tracking-[0.18em] uppercase text-sm md:text-base">
             The strongest coders have emerged from the battlefield.
@@ -258,4 +257,4 @@ const LeaderboardPage: React.FC = () => {
   );
 };
 
-export default LeaderboardPage;
+export default Leaderboard1Page;

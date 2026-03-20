@@ -40,6 +40,7 @@ const toPublic = (participant: { usn: string; name: string }): PublicParticipant
 interface MatchParticipantRow {
   usn: string;
   name: string;
+  year: string;
   isMapped: boolean;
   mappedTo: string | null;
   mappedAt: Date | null;
@@ -48,13 +49,14 @@ interface MatchParticipantRow {
 interface MatchCandidateRow {
   usn: string;
   name: string;
+  year: string;
   isMapped: boolean;
   mappedTo: string | null;
 }
 
 export const matchmakingLocks = new Set<string>();
 
-export const assignMatchForParticipant = async (inputUsn: string): Promise<MatchmakingResult> => {
+export const assignMatchForParticipant = async (inputUsn: string, inputYear: string): Promise<MatchmakingResult> => {
   const usn = normalizeUsn(inputUsn);
   if (!usn) {
     return {
@@ -77,7 +79,7 @@ export const assignMatchForParticipant = async (inputUsn: string): Promise<Match
     const result = await db.$transaction(
       async (tx) => {
         const [participant] = await tx.$queryRaw<MatchParticipantRow[]>`
-          SELECT "usn", "name", "isMapped", "mappedTo", "mappedAt"
+          SELECT "usn", "name", "year", "isMapped", "mappedTo", "mappedAt"
           FROM "Participant"
           WHERE "usn" = ${usn}
           LIMIT 1
@@ -89,6 +91,8 @@ export const assignMatchForParticipant = async (inputUsn: string): Promise<Match
             message: "Participant not found"
           } satisfies MatchmakingResult;
         }
+
+        const matchmakingYear = participant.year || inputYear;
 
         if (participant.isMapped && participant.mappedTo && participant.mappedTo !== WAITING_FOR_OPPONENT) {
           const [mappedOpponent] = await tx.$queryRaw<Array<{ usn: string; name: string }>>`
@@ -122,13 +126,14 @@ export const assignMatchForParticipant = async (inputUsn: string): Promise<Match
         }
 
         const candidates = await tx.$queryRaw<MatchCandidateRow[]>`
-          SELECT "usn", "name", "isMapped", "mappedTo"
+          SELECT "usn", "name", "year", "isMapped", "mappedTo"
           FROM "Participant"
           WHERE (
               "isMapped" = false
               OR ("isMapped" = true AND "mappedTo" = ${WAITING_FOR_OPPONENT})
             )
             AND "usn" <> ${usn}
+            AND "year" = ${matchmakingYear}
         `;
 
         if (candidates.length === 0) {
@@ -216,7 +221,7 @@ export const assignMatchForParticipant = async (inputUsn: string): Promise<Match
   }
 };
 
-export const findOpponentForQueuedParticipant = async (inputUsn: string): Promise<MatchmakingResult> => {
+export const findOpponentForQueuedParticipant = async (inputUsn: string, inputYear: string): Promise<MatchmakingResult> => {
   const usn = normalizeUsn(inputUsn);
   if (!usn) {
     return {
@@ -239,7 +244,7 @@ export const findOpponentForQueuedParticipant = async (inputUsn: string): Promis
     const result = await db.$transaction(
       async (tx) => {
         const [participant] = await tx.$queryRaw<MatchParticipantRow[]>`
-          SELECT "usn", "name", "isMapped", "mappedTo", "mappedAt"
+          SELECT "usn", "name", "year", "isMapped", "mappedTo", "mappedAt"
           FROM "Participant"
           WHERE "usn" = ${usn}
           LIMIT 1
@@ -251,6 +256,8 @@ export const findOpponentForQueuedParticipant = async (inputUsn: string): Promis
             message: "Participant not found"
           } satisfies MatchmakingResult;
         }
+
+        const matchmakingYear = participant.year || inputYear;
 
         if (participant.isMapped && participant.mappedTo && participant.mappedTo !== WAITING_FOR_OPPONENT) {
           const [mappedOpponent] = await tx.$queryRaw<Array<{ usn: string; name: string }>>`
@@ -284,13 +291,14 @@ export const findOpponentForQueuedParticipant = async (inputUsn: string): Promis
         }
 
         const candidates = await tx.$queryRaw<MatchCandidateRow[]>`
-          SELECT "usn", "name", "isMapped", "mappedTo"
+          SELECT "usn", "name", "year", "isMapped", "mappedTo"
           FROM "Participant"
           WHERE (
               "isMapped" = false
               OR ("isMapped" = true AND "mappedTo" = ${WAITING_FOR_OPPONENT})
             )
             AND "usn" <> ${usn}
+            AND "year" = ${matchmakingYear}
         `;
 
         if (candidates.length === 0) {

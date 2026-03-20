@@ -20,7 +20,7 @@ const normalizeUsn = (value: string): string => value.trim().toUpperCase();
 
 export async function POST(
   request: NextRequest
-): Promise<NextResponse<{ success?: boolean; score?: number; total?: number; error?: string }>> {
+): Promise<NextResponse<{ success?: boolean; score?: number; total?: number; year?: string; error?: string }>> {
   let normalizedUsn: string | null = null;
 
   try {
@@ -42,6 +42,8 @@ export async function POST(
       return NextResponse.json({ error: "Participant not found" }, { status: 404 });
     }
 
+    const participantYear = participant.year || (participant.track === "1st_year" ? "1st" : "2nd");
+
     const session = await ensureParticipantSession(usn);
     const existingSubmissionStats = await getSessionSubmissionStats(usn);
 
@@ -51,7 +53,8 @@ export async function POST(
       return NextResponse.json({
         success: true,
         score: existingSubmissionStats.phase1Score ?? participant.phase1Score,
-        total: totalQuestions
+        total: totalQuestions,
+        year: participantYear
       });
     }
 
@@ -141,14 +144,23 @@ export async function POST(
     return NextResponse.json({
       success: true,
       score: persistedStats.phase1Score,
-      total: shuffledQuestionIds.length
+      total: shuffledQuestionIds.length,
+      year: participantYear
     });
   } catch (error: unknown) {
     if (error instanceof Error && error.message === "Already submitted") {
       if (normalizedUsn) {
         const persistedStats = await getSessionSubmissionStats(normalizedUsn);
+        const persistedParticipant = await db.participant.findUnique({
+          where: { usn: normalizedUsn },
+          select: { year: true, track: true }
+        });
+        const persistedYear = persistedParticipant
+          ? persistedParticipant.year || (persistedParticipant.track === "1st_year" ? "1st" : "2nd")
+          : "2nd";
+
         if (persistedStats.hasSubmitted && persistedStats.phase1Score !== null) {
-          return NextResponse.json({ success: true, score: persistedStats.phase1Score, total: 0 });
+          return NextResponse.json({ success: true, score: persistedStats.phase1Score, total: 0, year: persistedYear });
         }
       }
 

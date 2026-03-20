@@ -7,7 +7,7 @@ import type { LeaderboardResponse } from "@/types";
 export const dynamic = "force-dynamic";
 
 export async function GET(
-  request: NextRequest
+  _request: NextRequest
 ): Promise<NextResponse<LeaderboardResponse | { visible: false; message: string } | { error: string }>> {
   try {
     const state = await getOrCreateTournamentState();
@@ -15,23 +15,19 @@ export async function GET(
       return NextResponse.json({ visible: false, message: "Tournament not yet complete" }, { status: 403 });
     }
 
-    const year: string | null = request.nextUrl.searchParams.get("year");
-    const trackFilter = year === "1st" ? "1st_year" : year === "2nd" ? "2nd_year" : null;
-    const whereClause = {
-      isMapped: true,
-      phase1Score: {
-        gte: 0
-      },
-      ...(trackFilter ? { track: trackFilter } : {}),
-      session: {
-        is: {
-          hasSubmitted: true
-        }
-      }
-    };
-
     const participants = await db.participant.findMany({
-      where: whereClause,
+      where: {
+        isMapped: true,
+        track: "1st_year",
+        phase1Score: {
+          gte: 0
+        },
+        session: {
+          is: {
+            hasSubmitted: true
+          }
+        }
+      },
       include: {
         session: {
           select: {
@@ -43,7 +39,6 @@ export async function GET(
       orderBy: [{ phase1Score: "desc" }, { submittedAt: "asc" }, { id: "asc" }]
     });
 
-    // Safety net: API response also re-checks the submitted-only rule before serialization.
     const eligible = participants.filter(
       (participant) =>
         participant.session?.hasSubmitted === true &&
@@ -54,7 +49,7 @@ export async function GET(
     const totalRegistered = await db.participant.count({
       where: {
         isMapped: true,
-        ...(trackFilter ? { track: trackFilter } : {})
+        track: "1st_year"
       }
     });
 
@@ -63,7 +58,6 @@ export async function GET(
       name: participant.name,
       usn: participant.usn,
       phase1Score: participant.phase1Score,
-      // Leaderboard rule: top 8 are qualified, all others are eliminated.
       qualified: index < TOP_QUALIFIED_COUNT,
       hasSubmitted: true as const,
       submittedAt: participant.session?.submittedAt

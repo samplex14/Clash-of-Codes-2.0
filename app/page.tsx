@@ -45,7 +45,9 @@ export default function HomePage() {
       }
 
       login(data.participant);
-      router.push("/arena");
+      window.localStorage.setItem("participant_usn", data.participant.usn);
+      window.localStorage.setItem("participant_year", selectedYear);
+      router.push(selectedYear === "1st" ? "/arena/1st" : "/arena/2nd");
     } catch (err: any) {
       setErrors({ api: err.message });
       setLoading(false);

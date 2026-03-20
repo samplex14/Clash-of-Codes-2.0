@@ -21,12 +21,12 @@ export async function GET(
       return NextResponse.json({ error: "The battle horn has not sounded yet." }, { status: 403 });
     }
 
-    const participant = await db.participant.findUnique({ where: { usn }, select: { usn: true } });
+    const participant = await db.participant.findUnique({ where: { usn }, select: { usn: true, year: true } });
     if (!participant) {
       return NextResponse.json({ error: "Participant not found" }, { status: 404 });
     }
 
-    const questions = await getQuestionsForParticipant(usn);
+    const questions = await getQuestionsForParticipant(usn, participant.year);
 
     return NextResponse.json({ questions });
   } catch (error: unknown) {

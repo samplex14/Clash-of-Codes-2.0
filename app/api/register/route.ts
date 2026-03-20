@@ -47,6 +47,7 @@ export async function POST(
       data: {
         usn,
         name: fullName,
+        year,
         track: year === "1st" ? "1st_year" : "2nd_year"
       },
       select: {

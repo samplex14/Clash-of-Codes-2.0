@@ -43,7 +43,10 @@ const HomeRegisterClient: React.FC = () => {
       });
 
       login(response.participant);
-      router.push("/arena");
+      const participantYear = formData.year === "1" ? "1st" : "2nd";
+      window.localStorage.setItem("participant_usn", response.participant.usn);
+      window.localStorage.setItem("participant_year", participantYear);
+      router.push(participantYear === "1st" ? "/arena/1st" : "/arena/2nd");
     } catch (requestError: unknown) {
       const message = requestError instanceof Error ? requestError.message : "Failed to register to the clan";
       setError(message);

@@ -4,8 +4,10 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "clean": "node -e \"require('fs').rmSync('.next', { recursive: true, force: true })\"",
+    "build": "npm run clean && next build",
     "start": "next start",
+    "start:prod": "npm run build && next start",
     "lint": "next lint",
     "postinstall": "prisma generate",
     "db:deploy": "prisma migrate deploy",
@@ -13,6 +15,9 @@
     "db:generate": "prisma generate",
     "db:studio": "prisma studio",
     "db:seed": "tsx prisma/seed.ts"
+  },
+  "prisma": {
+    "seed": "ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/seed.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^0.10.4",
@@ -37,6 +42,7 @@
     "postcss": "^8.5.3",
     "prisma": "^6.5.0",
     "tailwindcss": "^3.4.19",
+    "ts-node": "^10.9.2",
     "tsx": "^4.20.3",
     "typescript": "^5.8.2"
   }

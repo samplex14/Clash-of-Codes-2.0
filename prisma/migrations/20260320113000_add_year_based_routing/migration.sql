@@ -1,0 +1,2 @@
+ALTER TABLE "Question"
+ADD COLUMN "year" TEXT NOT NULL DEFAULT '2nd';

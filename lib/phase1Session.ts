@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { getQuestionsByYear } from "@/lib/questions";
 import { parseQuestionOptions } from "@/types/question";
 
 interface QuestionPayload {
@@ -52,14 +53,20 @@ const parseShuffledIds = (value: unknown): string[] => {
   return value.map((entry) => String(entry));
 };
 
-export const ensureParticipantSession = async (inputUsn: string) => {
+export const ensureParticipantSession = async (inputUsn: string, inputYear?: string) => {
   const usn = normalizeUsn(inputUsn);
   const existing = await db.participantSession.findUnique({ where: { usn } });
   if (existing) {
     return existing;
   }
 
-  const questions = await db.question.findMany({ orderBy: { id: "asc" }, select: { id: true } });
+  const participant = await db.participant.findUnique({
+    where: { usn },
+    select: { year: true }
+  });
+  const participantYear = inputYear ?? participant?.year ?? "2nd";
+
+  const questions = await getQuestionsByYear(participantYear);
   const orderedIds = questions.map((question) => String(question.id));
   const shuffledQuestionIds = deterministicShuffle(orderedIds, `phase1:${usn}`);
 
@@ -88,15 +95,18 @@ export const preloadMappedParticipantSessions = async (): Promise<void> => {
       }
     },
     select: {
-      usn: true
+      usn: true,
+      year: true
     }
   });
 
-  await Promise.allSettled(mappedParticipants.map((participant) => ensureParticipantSession(participant.usn)));
+  await Promise.allSettled(
+    mappedParticipants.map((participant) => ensureParticipantSession(participant.usn, participant.year))
+  );
 };
 
-export const getQuestionsForParticipant = async (inputUsn: string): Promise<QuestionPayload[]> => {
-  const session = await ensureParticipantSession(inputUsn);
+export const getQuestionsForParticipant = async (inputUsn: string, participantYear?: string): Promise<QuestionPayload[]> => {
+  const session = await ensureParticipantSession(inputUsn, participantYear);
   const shuffledIds = parseShuffledIds(session.shuffledQuestionIds);
 
   const questions = await db.question.findMany({

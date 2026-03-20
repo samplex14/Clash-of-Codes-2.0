@@ -10,6 +10,13 @@ interface RequestInitWithJson extends RequestInit {
   json?: unknown;
 }
 
+export interface SubmitPhase1Response {
+  success: boolean;
+  score: number;
+  total: number;
+  year: string;
+}
+
 export const apiRequest = async <T>(path: string, init: RequestInitWithJson = {}): Promise<T> => {
   const headers = new Headers(init.headers);
   headers.set("Content-Type", "application/json");

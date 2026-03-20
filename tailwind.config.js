@@ -52,6 +52,7 @@ module.exports = {
         "spin-slow-reverse": "spin-slow-reverse 2.8s linear infinite",
         "ping-slow": "ping-slow 2s ease-out infinite",
         "fade-in": "fade-in 0.25s ease-out",
+        "bounce-slow": "bounce 3s infinite",
       },
     },
   },

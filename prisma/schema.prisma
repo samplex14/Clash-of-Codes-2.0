@@ -11,6 +11,7 @@ model Participant {
   id          Int       @id @default(autoincrement())
   usn         String    @unique
   name        String
+  year        String    @default("2nd")
   track       String
   phase1Score Int       @default(0)
   qualified   Boolean   @default(false)
@@ -46,6 +47,7 @@ model ParticipantSession {
 
 model Question {
   id              Int      @id @default(autoincrement())
+  year            String   @default("2nd")
   questionText    String
   options         Json
   correctOptionId String

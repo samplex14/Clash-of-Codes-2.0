@@ -28,3 +28,10 @@ export interface LeaderboardResponse {
 	totalRegistered: number;
 	message?: string;
 }
+
+export interface Phase1SubmitResponse {
+	success: boolean;
+	score: number;
+	total: number;
+	year: string;
+}

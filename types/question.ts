@@ -11,6 +11,7 @@ export interface Question extends Omit<PrismaQuestion, "options"> {
 
 export interface QuestionWithoutAnswer {
   id: number;
+  year: string;
   questionText: string;
   options: Option[];
   matchRound: number | null;

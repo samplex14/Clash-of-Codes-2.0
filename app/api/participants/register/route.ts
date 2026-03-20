@@ -46,6 +46,7 @@ export async function POST(
       data: {
         usn,
         name,
+        year: body.year === 1 ? "1st" : "2nd",
         track: body.year === 1 ? "1st_year" : "2nd_year"
       }
     });

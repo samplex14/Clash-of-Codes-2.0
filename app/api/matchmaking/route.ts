@@ -33,7 +33,7 @@ export async function POST(
 
     const participant = await db.participant.findUnique({
       where: { usn },
-      select: { usn: true, mappedTo: true, mappedAt: true, isMapped: true }
+      select: { usn: true, year: true, mappedTo: true, mappedAt: true, isMapped: true }
     });
 
     if (!participant) {
@@ -55,7 +55,7 @@ export async function POST(
       }
     }
 
-    const result = await assignMatchForParticipant(usn);
+    const result = await assignMatchForParticipant(usn, participant.year);
     if (result.status === "matched") {
       return NextResponse.json({
         status: "matched",

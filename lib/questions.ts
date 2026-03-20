@@ -49,3 +49,14 @@ export const hasParticipantSubmitted = async (usn: string): Promise<boolean> => 
 
   return session?.hasSubmitted === true;
 };
+
+export const getQuestionsByYear = async (participantYear: string): Promise<Array<{ id: number }>> => {
+  const year = participantYear === "1st" ? "1st" : "2nd";
+  return db.question.findMany({
+    where: {
+      year
+    },
+    orderBy: { id: "asc" },
+    select: { id: true }
+  });
+};
