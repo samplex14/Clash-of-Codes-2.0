@@ -75,54 +75,6 @@ const Leaderboard1Page: React.FC = () => {
     void loadLeaderboard();
   }, []);
 
-  useEffect(() => {
-    if (viewState !== "holding") {
-      return;
-    }
-
-    const interval = window.setInterval(() => {
-      void (async () => {
-        try {
-          const statusResponse = await fetch("/api/tournament/status", {
-            method: "GET",
-            cache: "no-store"
-          });
-
-          if (!statusResponse.ok) {
-            return;
-          }
-
-          const status = (await statusResponse.json()) as TournamentStatusResponse;
-          if (status.leaderboardVisible || status.allDone) {
-            await loadLeaderboard();
-          }
-
-          setTotalRegistered(status.total);
-        } catch {
-          // continue polling
-        }
-      })();
-    }, 5000);
-
-    return () => {
-      window.clearInterval(interval);
-    };
-  }, [viewState]);
-
-  useEffect(() => {
-    if (viewState !== "ready") {
-      return;
-    }
-
-    const interval = window.setInterval(() => {
-      void loadLeaderboard();
-    }, 5000);
-
-    return () => {
-      window.clearInterval(interval);
-    };
-  }, [viewState]);
-
   const finalists = useMemo<LeaderboardParticipant[]>(() => players.filter((player) => player.qualified).slice(0, 8), [players]);
   const leaderboard = useMemo<LeaderboardParticipant[]>(() => players, [players]);
 

@@ -4,6 +4,8 @@ import { Poppins as FontSans, Cinzel_Decorative, Cinzel } from "next/font/google
 import { cn } from "@/lib/utils"; // If a cn helper exists, or just use className
 import AppProviders from "@/components/providers/AppProviders";
 import { Analytics } from "@vercel/analytics/react";
+import TeamSarkBadge from "@/components/TeamSarkBadge";
+import TeamSarkLogo from "@/components/TeamSarkLogo";
 
 const fontSans = FontSans({
   subsets: ["latin"],
@@ -40,6 +42,8 @@ export default function RootLayout({
       >
         <AppProviders>{children}</AppProviders>
          <Analytics />
+         <TeamSarkBadge />
+         <TeamSarkLogo />
       </body>
     </html>
   );
