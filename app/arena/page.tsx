@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
+import LoadingRadar from "@/components/ui/loading-radar";
 
 export default function ArenaRedirect(): null {
   const router = useRouter();
