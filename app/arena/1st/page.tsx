@@ -10,6 +10,7 @@ import Phase1QuestionPanel, { type Phase1QuestionItem } from "@/components/Phase
 import { useParticipant } from "@/components/providers/ParticipantProvider";
 import { apiRequest } from "@/lib/api";
 import type { MatchmakingState, TournamentStatusResponse } from "@/types";
+import LoadingRadar from "@/components/ui/loading-radar";
 
 interface MatchmakingResponse {
   status: "matched" | "waiting";

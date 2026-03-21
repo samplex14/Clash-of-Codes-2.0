@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -56,12 +56,18 @@ export default function HomePage() {
   };
 
   return (
-    <div
-      className="min-h-screen w-screen flex items-center justify-center p-4 relative font-clash overflow-hidden bg-cover bg-center bg-no-repeat"
-      style={{
-        backgroundImage: "url('/assets/newbg.png')",
-      }}
-    >
+    <div className="min-h-screen w-screen flex items-center justify-center p-4 relative font-clash overflow-hidden">
+      <video
+        autoPlay
+        loop
+        muted
+        playsInline
+        className="fixed inset-0 w-full h-full object-cover z-0"
+      >
+        <source src="/assets/videoplayback(1).mp4" type="video/mp4" />
+      </video>
+      <div className="fixed inset-0 z-[1] bg-black/40" />
+
       {/* The main glassmorphic container */}
       <div className="relative z-10 w-[95%] max-w-[800px] backdrop-blur-md bg-white/10 border-[1.5px] border-white/20 rounded-3xl p-4 md:p-6 flex flex-col md:flex-row gap-8 shadow-[0_8px_32px_0_rgba(31,38,135,0.37)]">
         
