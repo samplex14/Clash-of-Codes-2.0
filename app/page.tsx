@@ -64,7 +64,7 @@ export default function HomePage() {
         playsInline
         className="fixed inset-0 w-full h-full object-cover z-0"
       >
-        <source src="/assets/videoplayback(2).mp4" type="video/mp4" />
+        <source src="/assets/videoplayback(1).mp4" type="video/mp4" />
       </video>
       <div className="fixed inset-0 z-[1] bg-black/40" />
 
