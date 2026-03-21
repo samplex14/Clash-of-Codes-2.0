@@ -5,7 +5,7 @@ import Image from "next/image";
 import { Crown, ScrollText, Swords, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
-import LoadingRadar from "@/components/ui/loading-radar";
+import ArenaLoadingCard from "@/components/ArenaLoadingCard";
 import Phase1QuestionPanel, { type Phase1QuestionItem } from "@/components/Phase1QuestionPanel";
 import { useParticipant } from "@/components/providers/ParticipantProvider";
 import { apiRequest } from "@/lib/api";
@@ -453,21 +453,11 @@ const ArenaPage: React.FC = () => {
       ) : null}
 
       {arenaState === "searching" ? (
-        <div className="relative z-10 w-full max-w-3xl mx-auto rounded-2xl border-4 border-[#d7b56f] bg-[#6f4628]/80 backdrop-blur-md shadow-[0_16px_0_0_#2d1b0f] p-8 md:p-12 text-center">
-          <h1 className="text-4xl md:text-5xl text-[#f4d17d] font-clash tracking-wide mb-8">Entering the Arena...</h1>
-          <div className="flex justify-center mb-8">
-            <LoadingRadar />
-          </div>
-          <p key={activeMessage} className="text-[#f5e1b0] text-lg md:text-xl mb-8 arena-message-fade min-h-8">
-            {activeMessage}
-          </p>
-          <p className="text-sm text-[#d2b17a] mb-6">Searching for {searchSeconds} seconds...</p>
-          <div className="inline-flex items-center gap-3 px-5 py-2 rounded-full border-2 border-[#d7b56f] bg-[#3f2a19] text-[#f1d790]">
-            <span className="font-semibold">{participant.name}</span>
-            <span className="opacity-70">|</span>
-            <span className="font-mono font-bold">{participant.usn}</span>
-          </div>
-        </div>
+        <ArenaLoadingCard 
+          name={participant?.name || "Warrior"}
+          usn={participant?.usn || "N/A"}
+          year="2ND YEAR"
+        />
       ) : null}
 
       {arenaState === "found" ? (
@@ -553,14 +543,17 @@ const ArenaPage: React.FC = () => {
             type="button"
             onClick={() => void handleStartBattle()}
             disabled={isStartSubmitting || hasStartedBattle}
-            className="group relative min-w-[280px] md:min-w-[340px] h-[72px] bg-gradient-to-b from-[#4ade80] to-[#16a34a] border-b-[6px] border-[#14532d] rounded-2xl flex items-center justify-center shadow-[0_10px_20px_rgba(0,0,0,0.4),0_6px_0_#14532d] active:shadow-none active:border-b-0 active:translate-y-[6px] transition-all duration-100 ease-out disabled:opacity-60 disabled:grayscale overflow-hidden"
+            className="group relative transition-transform active:scale-95 disabled:opacity-60 disabled:grayscale focus:outline-none"
           >
-              {/* Button Glint */}
-              <div className="absolute inset-0 rounded-xl bg-gradient-to-b from-white/20 to-transparent pointer-events-none" />
-              
-              <span className="relative z-10 font-clash text-xl md:text-2xl text-[#064e3b] drop-shadow-[0_1px_0_rgba(255,255,255,0.4)] tracking-[0.08em] uppercase font-bold">
-                {hasStartedBattle ? "Battling..." : "Sound the Battle Horn"}
-              </span>
+             <div className="relative w-[280px] md:w-[340px] h-[80px] md:h-[100px]">
+               <Image 
+                 src="/assets/soundbattle.png" 
+                 alt={hasStartedBattle ? "Battling..." : "Sound the Battle Horn"}
+                 fill
+                 className="object-contain drop-shadow-[0_10px_20px_rgba(0,0,0,0.5)]"
+                 priority
+               />
+             </div>
           </button>
         </div>
       ) : null}

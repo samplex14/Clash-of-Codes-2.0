@@ -150,7 +150,7 @@ export default function HomePage() {
                   />
                   {loading && (
                     <span className="absolute inset-0 flex items-center justify-center text-[#3e2413] font-black tracking-widest uppercase text-sm">
-                      Enlisting...
+                      {/* Enlisting... */}
                     </span>
                   )}
                 </div>
