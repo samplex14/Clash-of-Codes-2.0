@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useParticipant } from "@/components/providers/ParticipantProvider";
@@ -62,23 +63,24 @@ export default function HomePage() {
       }}
     >
       {/* The main glassmorphic container */}
-      <div className="relative z-10 w-[95%] max-w-[800px] backdrop-blur-md bg-white/10 border-[1.5px] border-white/20 rounded-3xl p-10 md:p-14 flex flex-col md:flex-row gap-8 shadow-[0_8px_32px_0_rgba(31,38,135,0.37)]">
+      <div className="relative z-10 w-[95%] max-w-[800px] backdrop-blur-md bg-white/10 border-[1.5px] border-white/20 rounded-3xl p-4 md:p-6 flex flex-col md:flex-row gap-8 shadow-[0_8px_32px_0_rgba(31,38,135,0.37)]">
         
         {/* Left Side: Title */}
-        <div className="flex-none md:flex-1 relative flex items-center justify-center md:justify-start">
-          <h1 
-            className="text-[2.5rem] md:text-[3.5rem] lg:text-[4rem] font-bold text-white/90 text-center md:text-left leading-tight drop-shadow-lg tracking-wide"
-            style={{ textShadow: "0 4px 20px rgba(255,255,255,0.4)" }}
-          >
-            CLASH<br />OF<br />CODES<br />2.0
-          </h1>
+        <div className="flex-none md:flex-1 relative h-full min-h-[450px] -mt-6 -mb-6">
+          <Image 
+            src="/assets/cardtext.png"
+            alt="Clash of Codes 2.0"
+            fill
+            className="object-fill drop-shadow-[0_10px_20px_rgba(0,0,0,0.5)]"
+            priority
+          />
           {/* Vertical divider on desktop */}
           <div className="hidden md:block absolute right-0 top-[10%] bottom-[10%] w-[1px] bg-white/20" />
         </div>
 
         {/* Right Side: Form */}
         <div className="flex-1 flex flex-col justify-center items-center md:items-start md:pl-8">
-          <form onSubmit={handleSubmit} className="w-full max-w-[320px] space-y-7 mx-auto">
+          <form onSubmit={handleSubmit} className="w-full max-w-[320px] space-y-4 mx-auto">
             
             {/* USN Input */}
             <div className="relative">
@@ -105,7 +107,7 @@ export default function HomePage() {
             </div>
 
             {/* Year Buttons */}
-            <div className="flex justify-between gap-4 pt-2">
+            <div className="flex justify-between gap-4 ">
               <button
                 type="button"
                 onClick={() => setIsSecondYear(false)}
@@ -133,13 +135,25 @@ export default function HomePage() {
             </div>
 
             {/* Submit Button */}
-            <div className="pt-4 flex justify-center w-full">
+            <div className="pt-6 flex justify-center w-full">
               <button
                 type="submit"
                 disabled={loading}
-                className="w-[95%] bg-purple-500 hover:bg-purple-400 text-white font-black tracking-wider px-6 py-4 rounded-[2rem] transition-all shadow-[0_0_20px_rgba(168,85,247,0.6)] hover:shadow-[0_0_30px_rgba(168,85,247,0.8)] disabled:opacity-70 disabled:grayscale uppercase text-sm"
+                className="group relative w-full h-[150px] transition-transform hover:scale-105 active:scale-95 disabled:opacity-70 disabled:grayscale flex items-center justify-center"
               >
-                {loading ? "ENLISTING..." : "BEGIN ADVENTURE"}
+                <div className="relative w-full h-full scale-125">
+                  <Image
+                    src="/assets/startbutton.png"
+                    alt="Begin Adventure"
+                    fill
+                    className="object-contain drop-shadow-[0_10px_15px_rgba(0,0,0,0.4)]"
+                  />
+                  {loading && (
+                    <span className="absolute inset-0 flex items-center justify-center text-[#3e2413] font-black tracking-widest uppercase text-sm">
+                      Enlisting...
+                    </span>
+                  )}
+                </div>
               </button>
             </div>
 

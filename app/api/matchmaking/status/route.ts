@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { SAMPLE_OPPONENTS } from "@/prisma/samplenames";
 
 export const dynamic = "force-dynamic";
 
@@ -31,7 +32,12 @@ export async function GET(
         where: { usn: participant.mappedTo },
         select: { name: true }
       });
-      opponentName = opponent?.name ?? null;
+      if (opponent?.name) {
+        opponentName = opponent.name;
+      } else {
+        const botOpponent = SAMPLE_OPPONENTS.find((sample) => sample.usn === participant.mappedTo);
+        opponentName = botOpponent?.name ?? null;
+      }
     }
 
     return NextResponse.json({

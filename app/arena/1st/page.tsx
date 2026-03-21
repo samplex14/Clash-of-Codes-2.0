@@ -27,6 +27,12 @@ interface MatchmakingStatusResponse {
   opponentName: string | null;
 }
 
+interface BotMatchmakingResponse {
+  opponentName: string;
+  opponentUSN: string;
+  isBot: boolean;
+}
+
 interface QuestionResponse {
   questions: Phase1QuestionItem[];
 }
@@ -109,9 +115,11 @@ const ArenaPage: React.FC = () => {
   const [score, setScore] = useState<number | null>(null);
   const [progress, setProgress] = useState<{ submitted: number; total: number }>({ submitted: 0, total: 0 });
   const [activeIndex, setActiveIndex] = useState<number>(0);
+  const [searchSeconds, setSearchSeconds] = useState<number>(0);
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const matchmakingPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pollingIntervalRef: React.MutableRefObject<ReturnType<typeof setInterval> | null> = useRef<ReturnType<typeof setInterval> | null>(null);
+  const matchmakingTimerRef: React.MutableRefObject<ReturnType<typeof setTimeout> | null> = useRef<ReturnType<typeof setTimeout> | null>(null);
   const tournamentProgressPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
@@ -146,6 +154,25 @@ const ArenaPage: React.FC = () => {
     setArenaState("battle");
   };
 
+  const fetchBotOpponent = async (usn: string): Promise<{ name: string; usn: string } | null> => {
+    try {
+      const response = await fetch("/api/matchmaking/bot", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ usn })
+      });
+
+      if (!response.ok) {
+        return null;
+      }
+
+      const data = (await response.json()) as BotMatchmakingResponse;
+      return { name: data.opponentName, usn: data.opponentUSN };
+    } catch {
+      return null;
+    }
+  };
+
   const resolveOpponentFromStatus = async (usn: string): Promise<boolean> => {
     const status = await apiRequest<MatchmakingStatusResponse>(`/api/matchmaking/status?usn=${encodeURIComponent(usn)}`);
     if (!status.isMapped || !status.mappedTo || status.mappedTo === "WAITING_FOR_OPPONENT") {
@@ -156,31 +183,50 @@ const ArenaPage: React.FC = () => {
       name: status.opponentName ?? "Unknown Raider",
       usn: status.mappedTo
     });
+    if (matchmakingTimerRef.current) {
+      clearTimeout(matchmakingTimerRef.current);
+      matchmakingTimerRef.current = null;
+    }
     updateParticipant({ mappedTo: status.mappedTo, mappedAt: new Date().toISOString() });
     setArenaState("found");
     return true;
   };
 
   const beginMatchmaking = async (usn: string): Promise<void> => {
-    const response = await apiRequest<MatchmakingResponse>("/api/matchmaking", {
+    const firstMatchmakingRequest = apiRequest<MatchmakingResponse>("/api/matchmaking", {
       method: "POST",
       json: { usn }
     });
+    matchmakingTimerRef.current = setTimeout(async () => {
+      if (arenaState === "searching") {
+        const botOpponent = await fetchBotOpponent(usn);
+        if (botOpponent) {
+          clearIntervalRef(pollingIntervalRef);
+          setOpponent(botOpponent);
+          setArenaState("found");
+        }
+      }
+    }, 30000);
+    const response = await firstMatchmakingRequest;
 
     if (response.status === "matched" && response.opponent) {
+      if (matchmakingTimerRef.current) {
+        clearTimeout(matchmakingTimerRef.current);
+        matchmakingTimerRef.current = null;
+      }
       setOpponent({ name: response.opponent.name, usn: response.opponent.usn });
       updateParticipant({ mappedTo: response.opponent.usn, mappedAt: response.matchedAt ?? new Date().toISOString() });
       setArenaState("found");
       return;
     }
 
-    clearIntervalRef(matchmakingPollRef);
-    matchmakingPollRef.current = setInterval(() => {
+    clearIntervalRef(pollingIntervalRef);
+    pollingIntervalRef.current = setInterval(() => {
       void (async () => {
         try {
           const matched = await resolveOpponentFromStatus(usn);
           if (matched) {
-            clearIntervalRef(matchmakingPollRef);
+            clearIntervalRef(pollingIntervalRef);
           }
         } catch {
           // Keep polling; the next cycle may succeed.
@@ -219,13 +265,35 @@ const ArenaPage: React.FC = () => {
       return;
     }
 
+    setSearchSeconds(0);
     void beginMatchmaking(participant.usn);
 
     return () => {
-      clearIntervalRef(matchmakingPollRef);
+      if (matchmakingTimerRef.current) {
+        clearTimeout(matchmakingTimerRef.current);
+        matchmakingTimerRef.current = null;
+      }
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
+      }
       clearIntervalRef(tournamentProgressPollRef);
     };
   }, [participant?.usn, router]);
+
+  useEffect(() => {
+    if (arenaState !== "searching") {
+      return;
+    }
+
+    const searchInterval = setInterval(() => {
+      setSearchSeconds((previous) => previous + 1);
+    }, 1000);
+
+    return () => {
+      clearInterval(searchInterval);
+    };
+  }, [arenaState]);
 
   useEffect(() => {
     if (arenaState !== "waiting") {
@@ -393,6 +461,7 @@ const ArenaPage: React.FC = () => {
           <p key={activeMessage} className="text-[#f5e1b0] text-lg md:text-xl mb-8 arena-message-fade min-h-8">
             {activeMessage}
           </p>
+          <p className="text-sm text-[#d2b17a] mb-6">Searching for {searchSeconds} seconds...</p>
           <div className="inline-flex items-center gap-3 px-5 py-2 rounded-full border-2 border-[#d7b56f] bg-[#3f2a19] text-[#f1d790]">
             <span className="font-semibold">{participant.name}</span>
             <span className="opacity-70">|</span>
