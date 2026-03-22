@@ -260,11 +260,11 @@ for (int i = 1; i < n; i *= 2) {
     },
     {
       year: "1st",
-      questionText: "Merge sort auxiliary space?",
+      questionText: "Merge sort time complexity?",
       options: [
         { optionId: "0", optionText: "O(1)" },
         { optionId: "1", optionText: "O(log n)" },
-        { optionId: "2", optionText: "O(n)" },
+        { optionId: "2", optionText: "O(n log n)" },
         { optionId: "3", optionText: "O(n^2)" }
       ],
       correctOptionId: "2",

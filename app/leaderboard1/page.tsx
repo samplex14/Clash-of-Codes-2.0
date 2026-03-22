@@ -75,7 +75,7 @@ const Leaderboard1Page: React.FC = () => {
     void loadLeaderboard();
   }, []);
 
-  const finalists = useMemo<LeaderboardParticipant[]>(() => players.filter((player) => player.qualified).slice(0, 8), [players]);
+  const finalists = useMemo<LeaderboardParticipant[]>(() => players.filter((player) => player.qualified).slice(0, 16), [players]);
   const leaderboard = useMemo<LeaderboardParticipant[]>(() => players, [players]);
 
   if (viewState === "loading") {

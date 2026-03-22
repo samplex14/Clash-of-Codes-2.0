@@ -1,7 +1,7 @@
 import { db } from "./db";
 import type { Prisma } from "@prisma/client";
 
-export const TOP_QUALIFIED_COUNT = 8;
+export const TOP_QUALIFIED_COUNT = 16;
 
 type SubmittedParticipantCandidate = Prisma.ParticipantGetPayload<{
   include: {

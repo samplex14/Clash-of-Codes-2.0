@@ -77,8 +77,8 @@ const rules: RuleItem[] = [
     text: "Every correct answer earns you one point. Speed matters only if two warriors finish with the same score."
   },
   {
-    title: "Top 8 Advance",
-    text: "The 8 warriors with the highest scores will advance to the Grand Finale on HackerRank."
+    title: "Top 16 Advance",
+    text: "The 16 warriors with the highest scores will advance to the Grand Finale on HackerRank."
   },
   {
     title: "No Cheating",

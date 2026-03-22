@@ -1,0 +1,74 @@
+1.  int f(int n){ if(n<=1) return 1; return f(n-1) + f(n-2) + f(n-3); }
+    printf(“%d”, f(5)); A. 13 B. 17 C. 19 D. 21 Answer: C
+
+2.  int a[]={1,3,5,7}; int *p=a; int **q=&p; printf(“%d”, (q +
+    *(p+1)/2)); A. 3 B. 5 C. 7 D. Garbage Answer: C
+
+3.  for(int i=1;i<n;i*=2) for(int j=1;j<n;j+=i) for(int k=0;k<j;k++) A.
+    O(n log n) B. O(n²) C. O(n² log n) D. O(n log² n) Answer: C
+
+4.  char s[]=“abcdef”; printf(“%c”, (s + (s+2) - *(s+1))); A. a B. b C.
+    c D. d Answer: A
+
+5.  int f(int n){ if(n==0) return 0; if(n%2==0) return f(n/2); return
+    1 + f(n-1); } printf(“%d”, f(15)); A. 4 B. 5 C. 6 D. 7 Answer: B
+
+6.  struct node{ int data; struct node* next; }; int countNodes(struct
+    node* head){ int c=0; while(head){ c++; head=head->next->next; }
+    return c; } A. Total nodes B. Half nodes C. Nodes at even
+    positions D. Undefined behavior Answer: D
+
+7.  console.log([] + {} + [] + {}); A. “[object Object][object
+    Object]” B. “[object Object]” C. “[object Object][object
+    Object][object Object]” D. Error Answer: A
+
+8.  int a[]={2,4,6,8}; int p=a; printf(“%d”, (p + ((p+2) -
+    (p+1))/2)); A. 4 B. 6 C. 8 D. Garbage Answer: C
+
+9.  int f(int n){ if(n<=1) return 1; return n*f(n-1) + f(n-2); }
+    printf(“%d”, f(4)); A. 43 B. 45 C. 48 D. 50 Answer: B
+
+10. for(int i=1;i<=n;i++) for(int j=1;j<=n;j*=2) for(int k=1;k<=j;k++)
+    for(int l=1;l<=i;l++) A. O(n² log n) B. O(n³ log n) C. O(n²
+    log² n) D. O(n log n) Answer: A
+
+11. console.log(!![] + !![] * !![]); A. 1 B. 2 C. 3 D. 4 Answer: B
+
+12. int x = 18; while(x){ x = x & (x-1); } printf(“%d”, x); A. 0 B. 1 C.
+    2 D. Infinite loop Answer: A
+
+13. int a[]={1,2,3,4,5}; int p=a; int sum=0; for(int i=0;i<5;i++) sum +=
+    (p + i%3); printf(“%d”, sum); A. 9 B. 10 C. 11 D. 12 Answer: C
+
+14. int f(int n){ if(n==1) return 1; return f(n/2) + f(n/2); } A.
+    O(n) B. O(log n) C. O(n log n) D. O(n²) Answer: A
+
+15. console.log([] == ![]); A. true B. false C. error D. undefined
+    Answer: A
+
+16. If we delete a node given only pointer to that node (not head)? A.
+    Not possible B. Copy next node data and delete next C. Delete
+    current node D. O(n) Answer: B
+
+17. Which of the following correctly swaps two integers a and b without
+    using extra space for all valid cases (including same memory)?
+
+A.  a = a ^ b; b = a ^ b; a = a ^ b;
+
+B.  a = a + b; b = a - b; a = a - b;
+
+C.  int temp = a; a = b; b = temp;
+
+D.  a = b ^ a; b = a ^ b; a = b ^ a;
+
+Answer: C
+
+18. char s[]=“xyz”; printf(“%c”, *(s + (s[0] - s[2]))); A. x B. y C.
+    z D. Garbage Answer: D
+
+19. let a = {}; let b = {key: “value”}; let c = {key: “value”}; a[b] =
+    1; a[c] = 2; console.log(a[b]); A. 1 B. 2 C. undefined D. error
+    Answer: B
+
+20. int f(int n){ if(n<=1) return 1; return f(n-1) + f(n/2); } A.
+    O(n) B. O(n log n) C. O(2^n) D. O(n²) Answer: C
