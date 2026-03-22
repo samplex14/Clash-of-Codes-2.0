@@ -561,39 +561,7 @@ const ArenaPage: React.FC = () => {
 
       {arenaState === "battle" ? <Phase1QuestionPanel usn={participant.usn} questions={battleQuestions} onSubmitted={handleSubmitted} /> : null}
 
-      {arenaState === "waiting" ? (
-        <div className="w-full min-h-screen flex items-center justify-center px-4 py-10 bg-[radial-gradient(circle_at_top,#4a2b1a_0%,#26160f_60%,#1b110b_100%)]">
-          <div className="w-full max-w-4xl rounded-[28px] border-[6px] border-[#d6ad5f] bg-gradient-to-b from-[#8b5a33] to-[#5f3c22] shadow-[0_20px_0_0_#2d1b0f,0_0_28px_rgba(214,173,95,0.2)] p-8 md:p-12 text-center">
-            <div className="flex justify-center mb-7">
-              <LoadingRadar />
-            </div>
-
-            <h2 className="text-3xl md:text-5xl text-[#f2c96f] font-cinzel mb-6">You Have Fought Bravely, Warrior.</h2>
-
-            <div className="inline-flex px-5 py-2 rounded-full border-2 border-[#f0cb74] bg-[#3e2413] text-[#f5d98d] font-bold mb-6">
-              Your Battle Score: {score ?? 0}
-            </div>
-
-            <p className="text-[#d9bf8e] text-lg animate-pulse mb-8">Waiting for other warriors to finish the battle...</p>
-
-            <div className="flex items-end justify-center gap-3 mb-6">
-              <span className="text-4xl md:text-6xl leading-none text-[#f2cd78] font-cinzel">{progress.submitted}</span>
-              <span className="text-3xl md:text-4xl leading-none text-[#cbb083] font-cinzel">/</span>
-              <span className="text-4xl md:text-6xl leading-none text-[#f2cd78] font-cinzel">{progress.total}</span>
-              <span className="text-lg md:text-2xl leading-none text-[#cbb083] font-cinzel pb-1">Warriors Finished</span>
-            </div>
-
-            <div className="max-w-2xl mx-auto rounded-full border-2 border-[#d2ad61] bg-[#2c1b12] p-1.5 overflow-hidden">
-              <div
-                className="h-6 rounded-full bg-gradient-to-r from-[#2f7f2d] to-[#44b645] transition-all duration-500"
-                style={{
-                  width: `${progress.total > 0 ? Math.min(100, (progress.submitted / progress.total) * 100) : 0}%`
-                }}
-              />
-            </div>
-          </div>
-        </div>
-      ) : null}
+      {arenaState === "waiting" ? null : null}
       </div>
     </div>
   );

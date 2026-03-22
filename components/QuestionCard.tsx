@@ -28,6 +28,8 @@ const QuestionCard: React.FC<QuestionCardProps> = ({
   disabled = false,
   isLocked = false
 }) => {
+  const hasMultilineText = question.text.includes("\n");
+
   return (
     <div className="w-full relative mx-auto my-4 font-clash">
       {/* Main Parchment Container */}
@@ -55,7 +57,13 @@ const QuestionCard: React.FC<QuestionCardProps> = ({
 
         {/* Question Text */}
         <div className="relative z-10 mb-8 min-h-[80px]">
-          <p className="text-lg md:text-2xl text-[#2b1d12] leading-snug drop-shadow-sm tracking-wide">
+          <p
+            className={
+              hasMultilineText
+                ? "text-sm md:text-base text-[#2b1d12] leading-relaxed whitespace-pre-wrap break-words font-mono bg-[#efe2ca] border border-[#d6b892] rounded-lg p-4"
+                : "text-lg md:text-2xl text-[#2b1d12] leading-snug drop-shadow-sm tracking-wide"
+            }
+          >
             {question.text}
           </p>
         </div>

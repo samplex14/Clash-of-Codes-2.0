@@ -1,0 +1,58 @@
+1.  int i = 1; i = i++ + ++i + i++; printf(“%d”, i); A. 6 B. 7 C. 8 D.
+    Undefined Behavior Answer: D
+
+2.  int x = 10; printf(“%d”, x & (x-1)); A. 8 B. 9 C. 10 D. 2 Answer: A
+
+3.  int a[5] = {10,20,30,40,50}; int p = a; printf(“%d”, (p+3)); A.
+    30 B. 40 C. 50 D. 20 Answer: B
+
+4.  int a[2][3] = {1,2,3,4,5,6}; printf(“%d”, ((a+1)+2)); A. 5 B. 6 C.
+    4 D. 3 Answer: B
+
+5.  int f(int n){ if(n<=1) return 1; return f(n-1) + f(n-2); }
+    printf(“%d”, f(5)); A. 5 B. 8 C. 13 D. 3 Answer: B
+
+6.  int x = 7; int count = 0; while(x){ x = x & (x-1); count++; }
+    printf(“%d”, count); A. 2 B. 3 C. 1 D. 7 Answer: B
+
+7.  int a[] = {1,2,3,4}; int p = a; p++; p = 10; printf(“%d”, a[1]); A.
+    2 B. 10 C. 3 D. Error Answer: B
+
+8.  int count=0; for(int i=1;i<8;i*=2) for(int j=0;j<i;j++) count++;
+    printf(“%d”,count); A. 7 B. 8 C. 15 D. 14 Answer: A
+
+9.  int arr[10]; int *p = arr; printf(“%ld”, sizeof(p)); A. 40 B. 10 C.
+    8 D. Error Answer: C
+
+10. int a = 5, b = 5; a = a ^ b; b = a ^ b; a = a ^ b; printf(“%d %d”,
+    a, b); A. 5 5 B. 0 0 C. 5 0 D. Undefined Answer: A
+
+11. for(int i=1;i<n;i*=2) for(int j=0;j<i;j++) A. O(n) B. O(n log n) C.
+    O(log n) D. O(n²) Answer: A
+
+12. What does x & (-x) return? A. Highest set bit B. Lowest set bit C.
+    Zero D. Complement Answer: B
+
+13. Worst-case recursion space? A. O(1) B. O(log n) C. O(n) D. O(n²)
+    Answer: C
+
+14. Address of arr[i][j]? A. base + i + j B. base + (in + j) C. base +
+    (i+jn) D. base + i*j Answer: B
+
+15. Binary search comparisons? A. log₂n B. log₂n + 1 C. n D. n/2 Answer:
+    B
+
+16. Merge sort auxiliary space? A. O(1) B. O(log n) C. O(n) D. O(n²)
+    Answer: C
+
+17. Minimum reversals to rotate array? A. 1 B. 2 C. 3 D. k Answer: C
+
+18. for(i=1;i<n;i=2) for(j=1;j<n;j=2) for(k=0;k<n;k++) A. O(n log n) B.
+    O(n (log n)^2) C. O(n²) D. O(n² log n) Answer: B
+
+19. Collision handling method? A. DFS B. BFS C. Chaining D. Sorting
+    Answer: C
+
+20. for(int i=1;i<=n;i++) for(int j=1;j<=n;j*=2) for(int
+    k=1;k<=j;k++) A. O(n log n) B. O(n²) C. O(n log² n) D. O(n² log n)
+    Answer: A
