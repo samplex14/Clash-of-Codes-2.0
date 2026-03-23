@@ -12,8 +12,7 @@ export async function seedSecondYearQuestions(): Promise<void> {
   const secondYearQuestions: SeedQuestion[] = [
     {
       year: "2nd",
-      questionText: `What is this question asking?
-Find the time complexity of the nested loops below.
+      questionText: `Find the time complexity of the nested loops below.
 
 Code snippet:
 
@@ -34,8 +33,7 @@ for (let i = 0; i < n; i++) {
     },
     {
       year: "2nd",
-      questionText: `What is this question asking?
-Predict the output and understand Python's mutable default argument behavior.
+      questionText: `Predict the output and understand Python's mutable default argument behavior.
 
 Code snippet:
 
@@ -67,8 +65,7 @@ print(func())`,
     },
     {
       year: "2nd",
-      questionText: `What is this question asking?
-Find the time complexity of the recursive function f(n).
+      questionText: `Find the time complexity of the recursive function f(n).
 
 Code snippet:
 
@@ -88,8 +85,7 @@ function f(n) {
     },
     {
       year: "2nd",
-      questionText: `What is this question asking?
-A recursive function calls itself twice with n - 1 and does O(1) work each call. Find time and space complexity.`,
+      questionText: `A recursive function calls itself twice with n - 1 and does O(1) work each call. Find time and space complexity.`,
       options: [
         { optionId: "0", optionText: "Time: O(n), Space: O(log n)" },
         { optionId: "1", optionText: "Time: O(2^n), Space: O(n)" },
@@ -101,8 +97,7 @@ A recursive function calls itself twice with n - 1 and does O(1) work each call.
     },
     {
       year: "2nd",
-      questionText: `What is this question asking?
-In a rotated sorted array, you need to search for a target without explicitly finding pivot first. What is the minimum comparison complexity?`,
+      questionText: `In a rotated sorted array, you need to search for a target without explicitly finding pivot first. What is the minimum comparison complexity?`,
       options: [
         { optionId: "0", optionText: "O(1)" },
         { optionId: "1", optionText: "O(log n)" },
@@ -114,8 +109,7 @@ In a rotated sorted array, you need to search for a target without explicitly fi
     },
     {
       year: "2nd",
-      questionText: `What is this question asking?
-Find the LPS (Longest Prefix which is also Suffix) for the string "abacabab".`,
+      questionText: `Find the LPS (Longest Prefix which is also Suffix) for the string "abacabab".`,
       options: [
         { optionId: "0", optionText: "a" },
         { optionId: "1", optionText: "ab" },
@@ -127,8 +121,7 @@ Find the LPS (Longest Prefix which is also Suffix) for the string "abacabab".`,
     },
     {
       year: "2nd",
-      questionText: `What is this question asking?
-Identify the standard XOR operation sequence used to swap two numbers.
+      questionText: `Identify the standard XOR operation sequence used to swap two numbers.
 
 Code snippets:
 
@@ -162,8 +155,7 @@ b = a ^ b;`,
     },
     {
       year: "2nd",
-      questionText: `What is this question asking?
-Predict constructor/destructor output order with inheritance and virtual destructor.
+      questionText: `Predict constructor/destructor output order with inheritance and virtual destructor.
 
 Code snippet:
 
@@ -197,8 +189,7 @@ int main() {
     },
     {
       year: "2nd",
-      questionText: `What is this question asking?
-Find the output of the recursive function for n = 6.
+      questionText: `Find the output of the recursive function for n = 6.
 
 Code snippet:
 
@@ -219,8 +210,7 @@ printf("%d", f(6));`,
     },
     {
       year: "2nd",
-      questionText: `What is this question asking?
-Find the output using pointer arithmetic.
+      questionText: `Find the output using pointer arithmetic.
 
 Code snippet:
 
@@ -238,8 +228,7 @@ printf("%d %d", *(p - 1), *(p + 1));`,
     },
     {
       year: "2nd",
-      questionText: `What is this question asking?
-Determine JavaScript event loop output order.
+      questionText: `Determine JavaScript event loop output order.
 
 Code snippet:
 
@@ -258,8 +247,7 @@ console.log("D");`,
     },
     {
       year: "2nd",
-      questionText: `What is this question asking?
-Check object-key coercion behavior in JavaScript objects.
+      questionText: `Check object-key coercion behavior in JavaScript objects.
 
 Code snippet:
 
@@ -281,8 +269,7 @@ console.log(Object.keys(a).length);`,
     },
     {
       year: "2nd",
-      questionText: `What is this question asking?
-Understand shallow copy behavior in nested arrays in JavaScript.
+      questionText: `Understand shallow copy behavior in nested arrays in JavaScript.
 
 Code snippet:
 
@@ -301,8 +288,7 @@ console.log(a[0][0]);`,
     },
     {
       year: "2nd",
-      questionText: `What is this question asking?
-Identify which option is NOT required for deadlock.
+      questionText: `Identify which option is NOT required for deadlock.
 
 Options:
 A) Mutual Exclusion
@@ -320,8 +306,7 @@ D) Circular Wait`,
     },
     {
       year: "2nd",
-      questionText: `What is this question asking?
-Using non-preemptive SJF scheduling, find execution order.
+      questionText: `Using non-preemptive SJF scheduling, find execution order.
 
 Given:
 Process  Arrival  Burst
@@ -339,8 +324,7 @@ P3       2        1`,
     },
     {
       year: "2nd",
-      questionText: `What is this question asking?
-If page size is 4 KB in a 32-bit logical address space, how many bits are used for page offset?`,
+      questionText: `If page size is 4 KB in a 32-bit logical address space, how many bits are used for page offset?`,
       options: [
         { optionId: "0", optionText: "8" },
         { optionId: "1", optionText: "10" },
@@ -352,8 +336,7 @@ If page size is 4 KB in a 32-bit logical address space, how many bits are used f
     },
     {
       year: "2nd",
-      questionText: `What is this question asking?
-Which mechanism most effectively prevents race conditions?`,
+      questionText: `Which mechanism most effectively prevents race conditions?`,
       options: [
         { optionId: "0", optionText: "Caching" },
         { optionId: "1", optionText: "Mutex Lock" },
@@ -378,8 +361,7 @@ In OSI/TCP-IP context, identify the layer responsible for end-to-end communicati
     },
     {
       year: "2nd",
-      questionText: `What is this question asking?
-Choose the true statement among TCP and UDP properties.
+      questionText: `Choose the true statement among TCP and UDP properties.
 
 Options:
 A) UDP guarantees delivery
@@ -397,8 +379,7 @@ D) UDP uses acknowledgments`,
     },
     {
       year: "2nd",
-      questionText: `What is this question asking?
-For a /24 subnet, find number of usable host IP addresses.`,
+      questionText: `For a /24 subnet, find number of usable host IP addresses.`,
       options: [
         { optionId: "0", optionText: "252" },
         { optionId: "1", optionText: "253" },

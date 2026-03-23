@@ -1,124 +1,166 @@
-# Clash of Codes 2.0 - Technical Context (Current)
+# Clash of Codes 2.0 - Technical Context (Refreshed)
 
 ## 1. Architecture Snapshot
 
 - Stack: Next.js App Router + TypeScript + Prisma + Neon PostgreSQL.
-- Runtime model: Serverless HTTP APIs (no WebSocket runtime).
-- Core app shell: app/layout.tsx with provider composition in components/providers/AppProviders.tsx.
-- Data access: lib/db.ts uses PrismaNeon adapter and singleton Prisma client.
-- Global tournament state is persisted in TournamentState; per-player quiz state is persisted in ParticipantSession.
+- Runtime model: Serverless HTTP route handlers (no WebSocket runtime).
+- Persistent state:
+  - Global event state in `TournamentState`.
+  - Per-participant phase state in `ParticipantSession`.
+- Data access: Prisma via `lib/db.ts`.
 
-## 2. Primary User Journey
+## 2. Current End-to-End Participant Journey
 
-1. Registration on app/page.tsx posts to /api/register.
-2. Year-based routing sends users to /arena/1st or /arena/2nd.
-3. Arena pages execute matchmaking via /api/matchmaking and /api/matchmaking/status.
-4. Bot fallback exists via /api/matchmaking/bot if no opponent is found in time.
-5. Battle questions load from /api/phase1/questions using deterministic per-user question order.
-6. Phase 1 submission posts to /api/phase1/submit where scoring and persistence are server-authoritative.
-7. After successful submission, arena currently routes users directly to leaderboard pages:
-   - 1st year -> /leaderboard1
-   - 2nd year -> /leaderboard
-8. Leaderboard pages themselves hold/poll until leaderboardVisible is true.
+1. Registration from home screen calls `POST /api/register`.
+2. Year-based routing sends participant to `/arena/1st` or `/arena/2nd`.
+3. Arena starts matchmaking using `POST /api/matchmaking` and then polls `GET /api/matchmaking/status`.
+4. If no human match appears in time, fallback is assigned by `POST /api/matchmaking/bot`.
+5. User clicks start battle button; this triggers `POST /api/tournament/start`.
+6. Questions are loaded from `GET /api/phase1/questions`, with deterministic shuffled order per participant.
+7. Participant answers and submits via `POST /api/phase1/submit`.
+8. Arena routes to leaderboard page after submit:
+   - 1st year -> `/leaderboard1`
+   - 2nd year -> `/leaderboard`
+9. Leaderboard pages do one load attempt; if leaderboard is not yet visible, UI stays in holding state and requires manual page refresh.
 
-## 3. Domain API Map
+## 3. Domain API Map (Verified)
 
-### Registration and Participant
+### Registration
 
-- POST /api/register: Primary registration endpoint (usn, name, year/track).
-- POST /api/participants/register: Older/alternate registration route still present.
+- `POST /api/register`
+  - Primary registration route.
+  - Validates `usn`, `fullName`, and `year` (`1st` or `2nd`).
+- `POST /api/participants/register`
+  - Legacy/alternate registration route still present.
 
 ### Matchmaking
 
-- POST /api/matchmaking: Pairing logic with DB locking and retries.
-- GET /api/matchmaking/status: Reads mapping state for a user.
-- POST /api/matchmaking/bot: Assigns fallback bot opponent.
+- `POST /api/matchmaking`
+  - Requests opponent assignment.
+  - Returns `matched` or `waiting`.
+- `GET /api/matchmaking/status`
+  - Reads current match state for a participant.
+- `POST /api/matchmaking/bot`
+  - Assigns bot opponent when human match is not found in time.
 
 ### Phase 1
 
-- GET /api/phase1/status: Reports phase state.
-- GET /api/phase1/questions: Returns shuffled questions plus timer metadata.
-- POST /api/phase1/submit: Validates, scores, and atomically persists submissions.
-- GET /api/phase1/leaderboard: Legacy phase leaderboard route.
+- `GET /api/phase1/status`
+  - Returns phase active state.
+- `GET /api/phase1/questions`
+  - Returns shuffled question set, `timeLimitMinutes`, and `sessionCreatedAt`.
+- `POST /api/phase1/submit`
+  - Validates payload and scores server-side.
+  - Manual submit requires full answer set.
+  - Timeout auto-submit accepts partial confirmed answers.
+- `GET /api/phase1/leaderboard`
+  - Legacy route still present.
 
 ### Tournament and Leaderboard
 
-- POST /api/tournament/start: Starts phase and preloads sessions.
-- GET /api/tournament/status: Tracks completion and controls leaderboard visibility.
-- GET /api/tournament/state: Lightweight state response.
-- GET /api/leaderboard: Second-year/general leaderboard endpoint with pagination.
-- GET /api/leaderboard1: First-year leaderboard endpoint with pagination.
+- `POST /api/tournament/start`
+  - Idempotently activates phase and preloads sessions for mapped users.
+- `GET /api/tournament/status`
+  - Tracks submitted vs total mapped users.
+  - When all mapped users submit, flips `leaderboardVisible=true` and caches counts.
+- `GET /api/tournament/state`
+  - Lightweight state read.
+- `GET /api/leaderboard`
+  - 2nd-year/general leaderboard route (`?year=2nd|1st`).
+- `GET /api/leaderboard1`
+  - 1st-year leaderboard route.
 
-## 4. Data Model Summary (Prisma)
+## 4. Data Model Behavior Summary
 
-- Participant:
-  - identity and profile (usn, name, year, track)
-  - gameplay state (phase1Score, qualified)
-  - matchmaking state (isMapped, mappedTo, mappedAt)
-  - submit marker (submittedAt)
-- ParticipantSession:
-  - per-user question order (shuffledQuestionIds)
-  - persisted answer payload (confirmedAnswers)
-  - submit marker (hasSubmitted, submittedAt)
-  - session start anchor (createdAt)
-- TournamentState:
-  - single global record (id=1)
-  - phase and leaderboard controls (phase1Active, leaderboardVisible)
-  - status caching fields (cachedSubmitted, cachedTotal)
-- Question:
-  - year-scoped question bank
-  - options JSON + correctOptionId for server-side scoring
+- `Participant`
+  - Identity, track/year, phase score, mapping, submit timestamp, `qualified` flag.
+- `ParticipantSession`
+  - Shuffled question IDs, confirmed answers JSON, submit marker, created timestamp.
+- `TournamentState`
+  - Global phase flags plus cached totals used after completion.
+- `Question`
+  - Year-based question bank with `correctOptionId` for scoring.
 
-## 5. Timer, Timeout, and Submission Behavior
+## 5. Timing, Deadline, and Submission Rules
 
-- Time limit source: PHASE1_TIME_LIMIT_MINUTES (fallback 60).
-- /api/phase1/questions returns timeLimitMinutes and sessionCreatedAt.
-- Client computes deadline as sessionCreatedAt + timeLimitMinutes.
-- Timer UI is shown in components/Phase1QuestionPanel.tsx.
+- Time limit source: `PHASE1_TIME_LIMIT_MINUTES` (default 60 if unset/invalid).
+- Server returns `timeLimitMinutes` and `sessionCreatedAt`; client computes countdown deadline from these values.
+- Server is authoritative on deadline enforcement:
+  - Manual submit after deadline -> rejected.
+  - Auto-submit (`autoSubmitted=true`) allows partial confirmed answers at timeout path.
+- Submission transaction marks session submitted and writes participant score atomically.
 
-### Manual Submit
+## 6. Polling and Refresh Behavior (Current)
 
-- Requires full answer set for all expected question IDs.
-- Deadline is enforced by server.
+- Matchmaking status: polled from arena with jittered interval.
+- Tournament completion status: polled from arena while waiting for leaderboard unlock.
+- Leaderboard pages: no interval polling now; single load attempt only.
+  - If locked, page remains in holding UI.
+  - User must refresh manually to re-check visibility.
 
-### Timeout Auto-Submit (Current)
+## 7. Current Inconsistencies and Risks
 
-- Trigger: timer reaches 00:00 in Phase1QuestionPanel.
-- Client auto-submits only locked answers (confirmedQuestions).
-- Unlocked/unanswered questions are omitted and do not contribute to score.
-- Payload includes autoSubmitted=true.
-- Server accepts partial payload for autoSubmitted requests and scores only submitted question IDs.
-- After server success, client clears local state and routes to leaderboard.
+### Functional Inconsistencies
 
-## 6. Concurrency and Scalability Mechanisms
+- Rules are duplicated in both arena pages (`app/arena/1st/page.tsx`, `app/arena/2nd/page.tsx`) instead of a shared source.
+- Rules text says 30 minutes, while backend default remains 60 unless `PHASE1_TIME_LIMIT_MINUTES` is set.
+- `docs/context.md` had outdated statements about leaderboard behavior; this file now reflects current behavior.
 
-- Matchmaking uses database transaction + row-locking strategy with retries for serialization/locking failures.
-- Polling uses jittered intervals to reduce synchronized spikes.
-- Submission path is idempotent-aware and transaction-protected.
-- Tournament status endpoint supports one-shot completion with cached counters.
-- Leaderboards are paginated (limit/offset) and submitted-only.
+### Reliability/Scale Risks
 
-## 7. Environment Variables in Active Use
+- No route-level rate limiting on polling-heavy endpoints.
+- Tournament completion uses dynamic mapped count (no phase-start participant snapshot), which can drift if late registrations occur.
+- Matchmaking relies on DB transaction retries; robust for many cases, but still sensitive under heavy contention.
+- Limited structured observability (no request IDs/correlated logs).
+- No authenticated admin recovery endpoints for live incident handling.
 
-- DATABASE_URL: required at server runtime.
-- DIRECT_URL: optional direct DB URL (migration/runtime utility).
-- NEXT_PUBLIC_APP_URL: optional base URL; client fallback exists.
-- NODE_ENV: defaulted to development if missing in env loader.
-- PHASE1_TIME_LIMIT_MINUTES: quiz deadline value (default 60).
+### Fairness/Security Risks
 
-## 8. Current Risks and Gaps
+- No participant auth token/session binding across APIs; USN is client-provided.
+- Multi-tab/session conflict protection is limited on the client side.
 
-- No explicit rate limiting on polling-heavy routes.
-- No distributed lock service for cross-instance matchmaking coordination.
-- Multi-tab conflict handling is still limited.
-- Structured request-level logging and consistent error envelope can be improved.
-- Operational behavior still depends on DB pool sizing and serverless cold-start profile.
+## 8. Priority-Wise Implementation Roadmap for Better Event Conduction
 
-## 9. Operational Readiness Notes
+### P0 - Must Implement Before Event
 
-- Migrations include matchmaking indexes and tournament status cache fields.
-- Architecture is suitable for event traffic when DB pooling is sized correctly.
-- Recommended before event day:
-  - full end-to-end rehearsal (register -> match -> battle -> submit -> leaderboard)
-  - monitor p95 latency and API error rate under synthetic concurrent load
-  - verify leaderboard visibility transition under real submission race conditions
+1. Add rate limiting on `GET /api/matchmaking/status`, `GET /api/tournament/status`, and leaderboard routes.
+2. Snapshot participant baseline at phase start and use snapshot for completion checks.
+3. Add admin recovery endpoints (secret-protected) for:
+   - force leaderboard visibility
+   - participant remap/unmap
+   - safe participant/session reset
+4. Lock timer policy to one source of truth:
+   - set and verify `PHASE1_TIME_LIMIT_MINUTES`
+   - ensure displayed rules match backend timer.
+
+### P1 - Strongly Recommended
+
+1. Centralize arena rules into shared module/component consumed by both `/arena/1st` and `/arena/2nd`.
+2. Add structured logging with request IDs across all API routes.
+3. Improve polling resilience UX (clear reconnect state + bounded backoff + retry controls).
+4. Add anti-multi-tab safeguards in battle flow.
+5. Add payload/integrity validation checks for question seed quality (e.g., `correctOptionId` exists in options).
+
+### P2 - Nice to Have
+
+1. Introduce participant auth/session token after registration.
+2. Add cached/materialized leaderboard snapshots for larger concurrent loads.
+3. Build small event-ops dashboard (mapped/submitted/visible/error counters).
+4. Add export endpoint for final standings (CSV/JSON).
+
+## 9. Event-Day Execution Checklist
+
+1. Confirm env vars on deployed environment:
+   - `DATABASE_URL`
+   - `DIRECT_URL` (if used for migrations)
+   - `NEXT_PUBLIC_APP_URL`
+   - `PHASE1_TIME_LIMIT_MINUTES`
+2. Run full dry-run path: register -> match -> start -> submit -> leaderboard unlock.
+3. Validate tie-break ordering with same-score simulated submissions.
+4. Validate duplicate submit behavior and conflict handling.
+5. Monitor polling endpoints under expected participant concurrency.
+
+## 10. Current State Verdict
+
+- Platform is functionally complete for event flow.
+- For reliable live conduction, P0 items should be implemented before event launch.

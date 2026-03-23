@@ -108,8 +108,8 @@ const ArenaPage: React.FC = () => {
   const [messageIndex, setMessageIndex] = useState<number>(0);
   const [opponent, setOpponent] = useState<{ name: string; usn: string } | null>(null);
   const [battleQuestions, setBattleQuestions] = useState<Phase1QuestionItem[]>([]);
-  const [battleTimeLimitSeconds, setBattleTimeLimitSeconds] = useState<number>(60 * 60);
-  const [battleDeadlineMs, setBattleDeadlineMs] = useState<number>(Date.now() + 60 * 60 * 1000);
+  const [battleTimeLimitSeconds, setBattleTimeLimitSeconds] = useState<number>(30 * 60);
+  const [battleDeadlineMs, setBattleDeadlineMs] = useState<number>(Date.now() + 30 * 60 * 1000);
   const [hasStartedBattle, setHasStartedBattle] = useState<boolean>(false);
   const [isStartSubmitting, setIsStartSubmitting] = useState<boolean>(false);
   const [activeIndex, setActiveIndex] = useState<number>(0);
@@ -153,7 +153,7 @@ const ArenaPage: React.FC = () => {
     const response = await apiRequest<QuestionResponse>(`/api/phase1/questions?usn=${encodeURIComponent(usn)}`);
     const safeLimitMinutes = Number.isFinite(response.timeLimitMinutes) && response.timeLimitMinutes > 0
       ? Math.floor(response.timeLimitMinutes)
-      : 60;
+      : 30;
     const timeLimitSeconds = safeLimitMinutes * 60;
     const createdAtMs = Date.parse(response.sessionCreatedAt);
     const resolvedDeadlineMs = Number.isFinite(createdAtMs)

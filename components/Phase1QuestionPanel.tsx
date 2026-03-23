@@ -43,7 +43,7 @@ const Phase1QuestionPanel: React.FC<Phase1QuestionPanelProps> = ({ usn, question
   const confirmedStorageKey = useMemo(() => `phase1_confirmed_${usn}`, [usn]);
   const resolvedTimeLimitSeconds = useMemo<number>(() => {
     if (!Number.isFinite(timeLimitSeconds) || timeLimitSeconds <= 0) {
-      return 60 * 60;
+      return 30 * 60;
     }
 
     return Math.floor(timeLimitSeconds);

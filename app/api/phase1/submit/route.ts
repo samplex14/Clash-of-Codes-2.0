@@ -8,12 +8,12 @@ export const dynamic = "force-dynamic";
 const normalizeUsn = (value: string): string => value.trim().toUpperCase();
 
 const getPhase1TimeLimitMinutes = (): number => {
-  const raw = Number(process.env.PHASE1_TIME_LIMIT_MINUTES ?? "60");
+  const raw = Number(process.env.PHASE1_TIME_LIMIT_MINUTES ?? "30");
   if (!Number.isFinite(raw) || raw <= 0) {
-    return 60;
+    return 30;
   }
 
-  return Math.floor(raw);
+  return 30;
 };
 
 export async function POST(
