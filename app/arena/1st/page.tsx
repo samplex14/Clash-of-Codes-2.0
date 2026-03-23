@@ -54,45 +54,42 @@ const searchingLines = [
 ] as const;
 
 const rules: RuleItem[] = [
+
   {
-    title: "Enter the Arena",
-    text: "Register with your USN to enter the battlefield. You will be matched with a fellow warrior before the battle begins."
+    title: "Track and Opponent",
+    text: "You are matched only within your track"
   },
   {
-    title: "The Rapid Fire Round",
-    text: "When the Warchief sounds the horn, questions will appear on your screen. Every warrior gets the same questions but in a different order."
+    title: "Question Format",
+    text: "Questions are multiple-choice and shown in a participant-specific shuffled order."
   },
   {
-    title: "Lock Your Answers",
-    text: "Click Confirm Answer to lock in your choice for each question. Once locked, you cannot change it. Think before you lock."
+    title: "Battle Timer",
+    text: "You get 30 minutes. Watch the timer and manage your pace carefully."
   },
   {
-    title: "Moving Between Questions",
-    text: "Use the Next button to move to the next question without locking. You can go back and answer skipped questions anytime."
+    title: "Manual Submission",
+    text: "Manual submit is allowed only when all required questions are answered. Partial manual submission is not accepted."
   },
   {
-    title: "The Final Strike",
-    text: "On the last question, the Submit button will appear. You can only submit after you have locked all previous answers. Once you submit, your battle is over."
+    title: "Auto-Submission on Timeout",
+    text: "When the timer reaches 00:00, the system auto-submits only your confirmed answers. Unanswered questions receive zero points."
   },
   {
-    title: "Scoring",
-    text: "Every correct answer earns you one point. Speed matters only if two warriors finish with the same score."
+    title: "Ranking Rule",
+    text: "Leaderboard rank is decided by score first. If scores are tied, earlier submission time ranks higher."
   },
   {
-    title: "Top 16 Advance",
-    text: "The 16 warriors with the highest scores will advance to the Grand Finale on HackerRank."
+    title: "Qualification",
+    text: "Top 16 participants in each track qualify for the next round."
   },
   {
-    title: "No Cheating",
-    text: "No AI tools, no external help, no searching the internet. Warriors caught cheating will be immediately disqualified."
+    title: "Leaderboard Refresh",
+    text: "Leaderboard updates are manual. Refresh the leaderboard page to see the latest standings."
   },
   {
-    title: "Stay on the Page",
-    text: "Do not refresh the page or close the tab during the battle. Your progress may be lost."
-  },
-  {
-    title: "Warchief Decides",
-    text: "All decisions made by the organizing team are final. Respect your fellow warriors and the organizers at all times."
+    title: "Fair Play and Stability",
+    text: "No AI tools, no external assistance, and no exploit attempts. Avoid refreshing or changing devices mid-battle; organizer decisions are final."
   }
 ];
 
