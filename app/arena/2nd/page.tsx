@@ -54,12 +54,8 @@ const searchingLines = [
 
 const rules: RuleItem[] = [
   {
-    title: "Rules Screen Timing",
-    text: "You are seeing these rules after matchmaking is complete. Your opponent is already assigned and battle setup is locked."
-  },
-  {
     title: "Track and Opponent",
-    text: "You are matched only within your track. If no human opponent is available in time, the system may assign a bot so you can continue."
+    text: "You are matched only within your track"
   },
   {
     title: "Question Format",
@@ -67,7 +63,7 @@ const rules: RuleItem[] = [
   },
   {
     title: "Battle Timer",
-    text: "You get 60 minutes for Phase 1. Watch the timer and manage your pace carefully."
+    text: "You get 30 minutes. Watch the timer and manage your pace carefully."
   },
   {
     title: "Manual Submission",
