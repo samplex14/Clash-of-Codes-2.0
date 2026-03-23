@@ -15,6 +15,8 @@ export async function GET(
       return NextResponse.json({ visible: false, message: "Tournament not yet complete" }, { status: 403 });
     }
 
+    const limit = Math.min(Math.max(Number(request.nextUrl.searchParams.get("limit") ?? "50"), 1), 150);
+    const offset = Math.max(Number(request.nextUrl.searchParams.get("offset") ?? "0"), 0);
     const year: string | null = request.nextUrl.searchParams.get("year");
     const trackFilter = year === "1st" ? "1st_year" : year === "2nd" ? "2nd_year" : null;
     const whereClause = {
@@ -30,7 +32,7 @@ export async function GET(
       }
     };
 
-    const participants = await db.participant.findMany({
+    const allEligibleParticipants = await db.participant.findMany({
       where: whereClause,
       include: {
         session: {
@@ -43,13 +45,10 @@ export async function GET(
       orderBy: [{ phase1Score: "desc" }, { submittedAt: "asc" }, { id: "asc" }]
     });
 
-    // Safety net: API response also re-checks the submitted-only rule before serialization.
-    const eligible = participants.filter(
-      (participant) =>
-        participant.session?.hasSubmitted === true &&
-        participant.phase1Score !== null &&
-        Number.isInteger(participant.phase1Score)
-    );
+    const total = allEligibleParticipants.length;
+    const pagedParticipants = allEligibleParticipants.slice(offset, offset + limit);
+    const qualifiedTopParticipants = allEligibleParticipants.slice(0, TOP_QUALIFIED_COUNT);
+    const qualifiedUsns = new Set(qualifiedTopParticipants.map((participant) => participant.usn));
 
     const totalRegistered = await db.participant.count({
       where: {
@@ -58,13 +57,24 @@ export async function GET(
       }
     });
 
-    const rankedParticipants = eligible.map((participant, index) => ({
+    const rankedParticipants = pagedParticipants.map((participant, index) => ({
+      rank: offset + index + 1,
+      name: participant.name,
+      usn: participant.usn,
+      phase1Score: participant.phase1Score,
+      qualified: qualifiedUsns.has(participant.usn),
+      hasSubmitted: true as const,
+      submittedAt: participant.session?.submittedAt
+        ? participant.session.submittedAt.toISOString()
+        : new Date(0).toISOString()
+    }));
+
+    const qualifiedParticipants = qualifiedTopParticipants.map((participant, index) => ({
       rank: index + 1,
       name: participant.name,
       usn: participant.usn,
       phase1Score: participant.phase1Score,
-      // Leaderboard rule: top 8 are qualified, all others are eliminated.
-      qualified: index < TOP_QUALIFIED_COUNT,
+      qualified: true,
       hasSubmitted: true as const,
       submittedAt: participant.session?.submittedAt
         ? participant.session.submittedAt.toISOString()
@@ -74,7 +84,11 @@ export async function GET(
     return NextResponse.json({
       visible: true,
       participants: rankedParticipants,
-      totalEligible: rankedParticipants.length,
+      qualifiedParticipants,
+      total,
+      limit,
+      offset,
+      totalEligible: total,
       totalRegistered
     });
   } catch (error: unknown) {

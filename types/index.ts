@@ -24,14 +24,23 @@ export interface LeaderboardParticipant {
 export interface LeaderboardResponse {
 	visible: boolean;
 	participants: LeaderboardParticipant[];
+	qualifiedParticipants?: LeaderboardParticipant[];
+	total: number;
+	limit: number;
+	offset: number;
 	totalEligible: number;
 	totalRegistered: number;
 	message?: string;
 }
 
+export interface SubmitPayload {
+	usn: string;
+	answers: Record<string, string>;
+	autoSubmitted?: boolean;
+}
+
 export interface Phase1SubmitResponse {
 	success: boolean;
 	score: number;
-	total: number;
 	year: string;
 }

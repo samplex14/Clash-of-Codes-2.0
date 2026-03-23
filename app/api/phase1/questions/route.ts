@@ -7,9 +7,25 @@ export const dynamic = "force-dynamic";
 
 const normalizeUsn = (usn: string): string => usn.trim().toUpperCase();
 
+const getPhase1TimeLimitMinutes = (): number => {
+  const raw = Number(process.env.PHASE1_TIME_LIMIT_MINUTES ?? "60");
+  if (!Number.isFinite(raw) || raw <= 0) {
+    return 60;
+  }
+
+  return Math.floor(raw);
+};
+
 export async function GET(
   request: NextRequest
-): Promise<NextResponse<{ error?: string; questions?: Array<{ questionId: string; text: string; options: Array<{ id: string; text: string }> }> }>> {
+): Promise<
+  NextResponse<{
+    error?: string;
+    questions?: Array<{ questionId: string; text: string; options: Array<{ id: string; text: string }> }>;
+    timeLimitMinutes?: number;
+    sessionCreatedAt?: string;
+  }>
+> {
   try {
     const usn = normalizeUsn(String(request.nextUrl.searchParams.get("usn") ?? ""));
     if (!usn) {
@@ -28,7 +44,22 @@ export async function GET(
 
     const questions = await getQuestionsForParticipant(usn, participant.year);
 
-    return NextResponse.json({ questions });
+    const session = await db.participantSession.findUnique({
+      where: { usn },
+      select: { createdAt: true }
+    });
+
+    if (!session) {
+      return NextResponse.json({ error: "Session not found" }, { status: 404 });
+    }
+
+    const timeLimitMinutes = getPhase1TimeLimitMinutes();
+
+    return NextResponse.json({
+      questions,
+      timeLimitMinutes,
+      sessionCreatedAt: session.createdAt.toISOString()
+    });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Unexpected error";
     return NextResponse.json({ error: message }, { status: 500 });

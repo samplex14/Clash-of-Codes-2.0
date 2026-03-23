@@ -7,7 +7,7 @@ import type { LeaderboardResponse } from "@/types";
 export const dynamic = "force-dynamic";
 
 export async function GET(
-  _request: NextRequest
+  request: NextRequest
 ): Promise<NextResponse<LeaderboardResponse | { visible: false; message: string } | { error: string }>> {
   try {
     const state = await getOrCreateTournamentState();
@@ -15,19 +15,24 @@ export async function GET(
       return NextResponse.json({ visible: false, message: "Tournament not yet complete" }, { status: 403 });
     }
 
-    const participants = await db.participant.findMany({
-      where: {
-        isMapped: true,
-        track: "1st_year",
-        phase1Score: {
-          gte: 0
-        },
-        session: {
-          is: {
-            hasSubmitted: true
-          }
-        }
+    const limit = Math.min(Math.max(Number(request.nextUrl.searchParams.get("limit") ?? "50"), 1), 150);
+    const offset = Math.max(Number(request.nextUrl.searchParams.get("offset") ?? "0"), 0);
+
+    const whereClause = {
+      isMapped: true,
+      track: "1st_year",
+      phase1Score: {
+        gte: 0
       },
+      session: {
+        is: {
+          hasSubmitted: true
+        }
+      }
+    };
+
+    const allEligibleParticipants = await db.participant.findMany({
+      where: whereClause,
       include: {
         session: {
           select: {
@@ -39,12 +44,10 @@ export async function GET(
       orderBy: [{ phase1Score: "desc" }, { submittedAt: "asc" }, { id: "asc" }]
     });
 
-    const eligible = participants.filter(
-      (participant) =>
-        participant.session?.hasSubmitted === true &&
-        participant.phase1Score !== null &&
-        Number.isInteger(participant.phase1Score)
-    );
+    const total = allEligibleParticipants.length;
+    const pagedParticipants = allEligibleParticipants.slice(offset, offset + limit);
+    const qualifiedTopParticipants = allEligibleParticipants.slice(0, TOP_QUALIFIED_COUNT);
+    const qualifiedUsns = new Set(qualifiedTopParticipants.map((participant) => participant.usn));
 
     const totalRegistered = await db.participant.count({
       where: {
@@ -53,12 +56,24 @@ export async function GET(
       }
     });
 
-    const rankedParticipants = eligible.map((participant, index) => ({
+    const rankedParticipants = pagedParticipants.map((participant, index) => ({
+      rank: offset + index + 1,
+      name: participant.name,
+      usn: participant.usn,
+      phase1Score: participant.phase1Score,
+      qualified: qualifiedUsns.has(participant.usn),
+      hasSubmitted: true as const,
+      submittedAt: participant.session?.submittedAt
+        ? participant.session.submittedAt.toISOString()
+        : new Date(0).toISOString()
+    }));
+
+    const qualifiedParticipants = qualifiedTopParticipants.map((participant, index) => ({
       rank: index + 1,
       name: participant.name,
       usn: participant.usn,
       phase1Score: participant.phase1Score,
-      qualified: index < TOP_QUALIFIED_COUNT,
+      qualified: true,
       hasSubmitted: true as const,
       submittedAt: participant.session?.submittedAt
         ? participant.session.submittedAt.toISOString()
@@ -68,7 +83,11 @@ export async function GET(
     return NextResponse.json({
       visible: true,
       participants: rankedParticipants,
-      totalEligible: rankedParticipants.length,
+      qualifiedParticipants,
+      total,
+      limit,
+      offset,
+      totalEligible: total,
       totalRegistered
     });
   } catch (error: unknown) {

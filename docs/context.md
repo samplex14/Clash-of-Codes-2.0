@@ -1,108 +1,124 @@
-# Code Context And File Connections
+# Clash of Codes 2.0 - Technical Context (Current)
 
-This document explains what code is in which file and how two or more files connect to each other.
+## 1. Architecture Snapshot
 
-## Top-Level Structure
+- Stack: Next.js App Router + TypeScript + Prisma + Neon PostgreSQL.
+- Runtime model: Serverless HTTP APIs (no WebSocket runtime).
+- Core app shell: app/layout.tsx with provider composition in components/providers/AppProviders.tsx.
+- Data access: lib/db.ts uses PrismaNeon adapter and singleton Prisma client.
+- Global tournament state is persisted in TournamentState; per-player quiz state is persisted in ParticipantSession.
 
-- app/: Next.js App Router pages and API route handlers.
-- components/: reusable UI and client logic components.
-- hooks/: reusable React hooks.
-- lib/: shared server utilities, DB, and domain logic.
-- prisma/: schema, migrations, and seed data.
-- types/: shared TypeScript types.
+## 2. Primary User Journey
 
-## What Code Is In Which File
+1. Registration on app/page.tsx posts to /api/register.
+2. Year-based routing sends users to /arena/1st or /arena/2nd.
+3. Arena pages execute matchmaking via /api/matchmaking and /api/matchmaking/status.
+4. Bot fallback exists via /api/matchmaking/bot if no opponent is found in time.
+5. Battle questions load from /api/phase1/questions using deterministic per-user question order.
+6. Phase 1 submission posts to /api/phase1/submit where scoring and persistence are server-authoritative.
+7. After successful submission, arena currently routes users directly to leaderboard pages:
+   - 1st year -> /leaderboard1
+   - 2nd year -> /leaderboard
+8. Leaderboard pages themselves hold/poll until leaderboardVisible is true.
 
-### Core Pages
+## 3. Domain API Map
 
-- app/page.tsx: home page entry point.
-- app/arena/page.tsx: arena flow UI (matchmaking, phase state, battle progression).
-- app/leaderboard/page.tsx: leaderboard display UI.
-- app/layout.tsx: global app layout and providers.
-- app/globals.css: global styles.
+### Registration and Participant
 
-### API Routes
+- POST /api/register: Primary registration endpoint (usn, name, year/track).
+- POST /api/participants/register: Older/alternate registration route still present.
 
-- app/api/health/route.ts: health check endpoint.
-- app/api/participants/register/route.ts: participant registration logic.
-- app/api/participants/[usn]/route.ts: participant fetch by USN.
-- app/api/matchmaking/route.ts: matchmaking and mapping logic.
-- app/api/matchmaking/status/route.ts: polling endpoint for mapping state.
-- app/api/tournament/start/route.ts: activates phase and initializes sessions.
-- app/api/tournament/state/route.ts: returns global phase flags.
-- app/api/tournament/status/route.ts: submission progress and completion state.
-- app/api/phase1/questions/route.ts: returns participant question set.
-- app/api/phase1/confirm/route.ts: locks selected answers per question.
-- app/api/phase1/submit/route.ts: validates and stores final submission score.
-- app/api/phase1/status/route.ts: phase status endpoint.
-- app/api/phase1/leaderboard/route.ts: phase-specific leaderboard data.
-- app/api/leaderboard/route.ts: final leaderboard endpoint.
+### Matchmaking
 
-### Shared Logic
+- POST /api/matchmaking: Pairing logic with DB locking and retries.
+- GET /api/matchmaking/status: Reads mapping state for a user.
+- POST /api/matchmaking/bot: Assigns fallback bot opponent.
 
-- lib/db.ts: Prisma client initialization.
-- lib/env.ts: environment configuration helpers.
-- lib/api.ts: client-side API helper calls.
-- lib/matchmaking.ts: matchmaking utility logic.
-- lib/phase1Session.ts: participant session lifecycle utilities.
-- lib/phase1Qualification.ts: qualification/ranking calculations.
-- lib/questions.ts: question sourcing/format helpers.
-- lib/tournamentState.ts: global tournament state helpers.
-- lib/utils.ts: common utilities.
+### Phase 1
 
-### UI Components
+- GET /api/phase1/status: Reports phase state.
+- GET /api/phase1/questions: Returns shuffled questions plus timer metadata.
+- POST /api/phase1/submit: Validates, scores, and atomically persists submissions.
+- GET /api/phase1/leaderboard: Legacy phase leaderboard route.
 
-- components/HomeRegisterClient.tsx: registration client component.
-- components/Phase1QuestionPanel.tsx: question navigation and confirmation UI.
-- components/QuestionCard.tsx: question rendering block.
-- components/Leaderboard.tsx: leaderboard presentation.
-- components/Timer.tsx: timer UI logic.
-- components/ErrorBoundary.tsx: React error boundary.
-- components/providers/AppProviders.tsx: app-level context providers.
-- components/providers/ParticipantProvider.tsx: participant context state.
+### Tournament and Leaderboard
 
-### Data Model
+- POST /api/tournament/start: Starts phase and preloads sessions.
+- GET /api/tournament/status: Tracks completion and controls leaderboard visibility.
+- GET /api/tournament/state: Lightweight state response.
+- GET /api/leaderboard: Second-year/general leaderboard endpoint with pagination.
+- GET /api/leaderboard1: First-year leaderboard endpoint with pagination.
 
-- prisma/schema.prisma: data models and relations.
-- prisma/migrations/*: schema migration history.
-- prisma/seed.ts: seed script.
+## 4. Data Model Summary (Prisma)
 
-### Type Contracts
+- Participant:
+  - identity and profile (usn, name, year, track)
+  - gameplay state (phase1Score, qualified)
+  - matchmaking state (isMapped, mappedTo, mappedAt)
+  - submit marker (submittedAt)
+- ParticipantSession:
+  - per-user question order (shuffledQuestionIds)
+  - persisted answer payload (confirmedAnswers)
+  - submit marker (hasSubmitted, submittedAt)
+  - session start anchor (createdAt)
+- TournamentState:
+  - single global record (id=1)
+  - phase and leaderboard controls (phase1Active, leaderboardVisible)
+  - status caching fields (cachedSubmitted, cachedTotal)
+- Question:
+  - year-scoped question bank
+  - options JSON + correctOptionId for server-side scoring
 
-- types/index.ts, types/participant.ts, types/question.ts, types/match.ts: shared TypeScript contracts.
+## 5. Timer, Timeout, and Submission Behavior
 
-## File Connections (Two Or More Files Connected)
+- Time limit source: PHASE1_TIME_LIMIT_MINUTES (fallback 60).
+- /api/phase1/questions returns timeLimitMinutes and sessionCreatedAt.
+- Client computes deadline as sessionCreatedAt + timeLimitMinutes.
+- Timer UI is shown in components/Phase1QuestionPanel.tsx.
 
-### Registration Flow Connection
+### Manual Submit
 
-- app/page.tsx -> components/HomeRegisterClient.tsx -> app/api/participants/register/route.ts -> lib/db.ts -> prisma/schema.prisma
+- Requires full answer set for all expected question IDs.
+- Deadline is enforced by server.
 
-### Matchmaking Flow Connection
+### Timeout Auto-Submit (Current)
 
-- app/arena/page.tsx -> lib/api.ts -> app/api/matchmaking/route.ts + app/api/matchmaking/status/route.ts -> lib/matchmaking.ts -> lib/db.ts
+- Trigger: timer reaches 00:00 in Phase1QuestionPanel.
+- Client auto-submits only locked answers (confirmedQuestions).
+- Unlocked/unanswered questions are omitted and do not contribute to score.
+- Payload includes autoSubmitted=true.
+- Server accepts partial payload for autoSubmitted requests and scores only submitted question IDs.
+- After server success, client clears local state and routes to leaderboard.
 
-### Tournament Activation Connection
+## 6. Concurrency and Scalability Mechanisms
 
-- app/arena/page.tsx -> app/api/tournament/start/route.ts -> lib/tournamentState.ts + lib/phase1Session.ts -> lib/db.ts
+- Matchmaking uses database transaction + row-locking strategy with retries for serialization/locking failures.
+- Polling uses jittered intervals to reduce synchronized spikes.
+- Submission path is idempotent-aware and transaction-protected.
+- Tournament status endpoint supports one-shot completion with cached counters.
+- Leaderboards are paginated (limit/offset) and submitted-only.
 
-### Question Delivery Connection
+## 7. Environment Variables in Active Use
 
-- components/Phase1QuestionPanel.tsx + components/QuestionCard.tsx -> lib/api.ts -> app/api/phase1/questions/route.ts -> lib/questions.ts + lib/phase1Session.ts
+- DATABASE_URL: required at server runtime.
+- DIRECT_URL: optional direct DB URL (migration/runtime utility).
+- NEXT_PUBLIC_APP_URL: optional base URL; client fallback exists.
+- NODE_ENV: defaulted to development if missing in env loader.
+- PHASE1_TIME_LIMIT_MINUTES: quiz deadline value (default 60).
 
-### Answer Confirm/Submit Connection
+## 8. Current Risks and Gaps
 
-- components/Phase1QuestionPanel.tsx -> app/api/phase1/confirm/route.ts + app/api/phase1/submit/route.ts -> lib/phase1Session.ts -> lib/db.ts
+- No explicit rate limiting on polling-heavy routes.
+- No distributed lock service for cross-instance matchmaking coordination.
+- Multi-tab conflict handling is still limited.
+- Structured request-level logging and consistent error envelope can be improved.
+- Operational behavior still depends on DB pool sizing and serverless cold-start profile.
 
-### Completion And Leaderboard Connection
+## 9. Operational Readiness Notes
 
-- app/api/tournament/status/route.ts -> lib/phase1Qualification.ts + lib/tournamentState.ts -> app/api/leaderboard/route.ts -> app/leaderboard/page.tsx + components/Leaderboard.tsx
-
-### Shared Type Connection
-
-- types/*.ts are consumed by components/*, app/*, and lib/* to keep request/response and domain shapes consistent.
-
-## Maintenance Notes
-
-- When adding a new API route, update lib/api.ts if the client calls it.
-- When changing DB fields, update prisma/schema.prisma and affected lib/* + app/api/* handlers.
-- When changing UI flow, check related provider state in components/providers/*.
+- Migrations include matchmaking indexes and tournament status cache fields.
+- Architecture is suitable for event traffic when DB pooling is sized correctly.
+- Recommended before event day:
+  - full end-to-end rehearsal (register -> match -> battle -> submit -> leaderboard)
+  - monitor p95 latency and API error rate under synthetic concurrent load
+  - verify leaderboard visibility transition under real submission race conditions

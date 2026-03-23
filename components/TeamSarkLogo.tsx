@@ -12,7 +12,7 @@ export default function TeamSarkLogo() {
 
   return (
     <div className="fixed top-6 left-6 z-[100]">
-      <Link href="/" className="block hover:scale-105 transition-transform duration-300 ease-out filter drop-shadow-[0_2px_4px_rgba(0,0,0,0.3)]">
+      <Link href="/" className="block hover:scale-105 transition-transform duration-300 ease-out filter drop-shadow-[0_0_8px_rgba(255,255,255,0.8)]">
         <Image
           src={logoSrc}
           alt="Team Sark Logo"

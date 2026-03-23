@@ -1,33 +1,33 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import {
-  ensureParticipantSession,
-  getConfirmedAnswersMap,
-  getSessionSubmissionStats,
-  isSessionFullySubmitted
-} from "@/lib/phase1Session";
 import { getOrCreateTournamentState } from "@/lib/tournamentState";
+import type { Phase1SubmitResponse, SubmitPayload } from "@/types";
 
 export const dynamic = "force-dynamic";
 
-interface SubmitBody {
-  usn?: string;
-  lastQuestionId?: string;
-  lastSelectedOptionId?: string;
-}
-
 const normalizeUsn = (value: string): string => value.trim().toUpperCase();
+
+const getPhase1TimeLimitMinutes = (): number => {
+  const raw = Number(process.env.PHASE1_TIME_LIMIT_MINUTES ?? "60");
+  if (!Number.isFinite(raw) || raw <= 0) {
+    return 60;
+  }
+
+  return Math.floor(raw);
+};
 
 export async function POST(
   request: NextRequest
-): Promise<NextResponse<{ success?: boolean; score?: number; total?: number; year?: string; error?: string }>> {
+): Promise<NextResponse<Phase1SubmitResponse | { error: string }>> {
+  const limitMinutes = getPhase1TimeLimitMinutes();
   let normalizedUsn: string | null = null;
 
   try {
-    const body = (await request.json()) as SubmitBody;
-    if (!body.usn || !body.lastQuestionId || !body.lastSelectedOptionId) {
-      return NextResponse.json({ error: "usn, lastQuestionId, and lastSelectedOptionId are required" }, { status: 400 });
+    const body = (await request.json()) as Partial<SubmitPayload>;
+    if (!body.usn || !body.answers || typeof body.answers !== "object" || Array.isArray(body.answers)) {
+      return NextResponse.json({ error: "usn and answers are required" }, { status: 400 });
     }
+    const autoSubmitted = body.autoSubmitted === true;
 
     const state = await getOrCreateTournamentState();
     if (!state.phase1Active) {
@@ -36,90 +36,116 @@ export async function POST(
 
     const usn = normalizeUsn(body.usn);
     normalizedUsn = usn;
-    const participant = await db.participant.findUnique({ where: { usn } });
+    const submittedAnswers = Object.entries(body.answers).reduce<Record<string, string>>((acc, [questionId, selectedOptionId]) => {
+      if (typeof selectedOptionId === "string") {
+        acc[String(questionId)] = selectedOptionId;
+      }
+      return acc;
+    }, {});
 
-    if (!participant) {
+    const participant = await db.participant.findUnique({
+      where: { usn },
+      select: {
+        usn: true,
+        year: true,
+        track: true,
+        phase1Score: true,
+        session: {
+          select: {
+            shuffledQuestionIds: true,
+            hasSubmitted: true,
+            createdAt: true
+          }
+        }
+      }
+    });
+
+    if (!participant || !participant.session) {
       return NextResponse.json({ error: "Participant not found" }, { status: 404 });
     }
 
     const participantYear = participant.year || (participant.track === "1st_year" ? "1st" : "2nd");
 
-    const session = await ensureParticipantSession(usn);
-    const existingSubmissionStats = await getSessionSubmissionStats(usn);
-
-    // Submitted-only leaderboard rule: submit endpoint is idempotent and returns persisted score for already-submitted sessions.
-    if (existingSubmissionStats.hasSubmitted || (await isSessionFullySubmitted(usn))) {
-      const totalQuestions = Array.isArray(session.shuffledQuestionIds) ? session.shuffledQuestionIds.length : 0;
+    if (participant.session.hasSubmitted) {
       return NextResponse.json({
         success: true,
-        score: existingSubmissionStats.phase1Score ?? participant.phase1Score,
-        total: totalQuestions,
+        score: participant.phase1Score,
         year: participantYear
       });
     }
 
-    const shuffledQuestionIds = Array.isArray(session.shuffledQuestionIds)
-      ? session.shuffledQuestionIds.map((id) => String(id))
+    const shuffledQuestionIds = Array.isArray(participant.session.shuffledQuestionIds)
+      ? participant.session.shuffledQuestionIds.map((id) => String(id))
       : [];
 
     if (shuffledQuestionIds.length === 0) {
       return NextResponse.json({ error: "No question order found for this participant" }, { status: 400 });
     }
 
-    const confirmedAnswers = getConfirmedAnswersMap(session.confirmedAnswers);
-    const lastQuestionId = String(body.lastQuestionId);
-    const lastSelectedOptionId = String(body.lastSelectedOptionId);
+    const submittedQuestionIds = Object.keys(submittedAnswers);
+    const submittedSet = new Set<string>(submittedQuestionIds);
+    const expectedSet = new Set<string>(shuffledQuestionIds);
 
-    const expectedLastQuestionId = shuffledQuestionIds[shuffledQuestionIds.length - 1];
-    if (lastQuestionId !== expectedLastQuestionId) {
-      return NextResponse.json({ error: "Final strike must target the last question." }, { status: 400 });
+    if (submittedSet.size !== submittedQuestionIds.length) {
+      return NextResponse.json({ error: "Duplicate question IDs in answers are not allowed" }, { status: 400 });
     }
 
-    const priorQuestionIds = shuffledQuestionIds.slice(0, -1);
-    const missingQuestions = priorQuestionIds.filter((questionId) => !confirmedAnswers[questionId]);
-    if (missingQuestions.length > 0) {
-      return NextResponse.json(
-        { error: `Unconfirmed questions: ${missingQuestions.join(", ")}` },
-        { status: 400 }
-      );
+    const extraQuestionIds = submittedQuestionIds.filter((questionId) => !expectedSet.has(questionId));
+    if (extraQuestionIds.length > 0) {
+      return NextResponse.json({ error: `Unexpected question IDs: ${extraQuestionIds.join(", ")}` }, { status: 400 });
     }
 
-    confirmedAnswers[lastQuestionId] = lastSelectedOptionId;
+    if (!autoSubmitted) {
+      const missingQuestionIds = shuffledQuestionIds.filter((questionId) => !submittedSet.has(questionId));
+      if (missingQuestionIds.length > 0) {
+        return NextResponse.json({ error: `Missing question IDs: ${missingQuestionIds.join(", ")}` }, { status: 400 });
+      }
+    }
 
-    const questions = await db.question.findMany({ orderBy: { id: "asc" } });
+    const submissionDeadline = participant.session.createdAt.getTime() + limitMinutes * 60 * 1000;
+    if (Date.now() > submissionDeadline && !autoSubmitted) {
+      return NextResponse.json({ error: "The submission window has closed." }, { status: 403 });
+    }
+
+    const numericQuestionIds = Array.from(
+      new Set(
+        shuffledQuestionIds
+          .map((id) => Number(id))
+          .filter((id) => Number.isInteger(id))
+      )
+    );
+
+    if (numericQuestionIds.length === 0) {
+      return NextResponse.json({ error: "No valid question IDs found for this participant" }, { status: 400 });
+    }
+
+    const questions = await db.question.findMany({
+      where: {
+        id: {
+          in: numericQuestionIds
+        }
+      },
+      orderBy: { id: "asc" }
+    });
+
     const correctByQuestionId = new Map(questions.map((question) => [String(question.id), question.correctOptionId]));
 
-    let score = 0;
-    shuffledQuestionIds.forEach((questionId) => {
-      if (confirmedAnswers[questionId] === correctByQuestionId.get(questionId)) {
-        score += 1;
+    let finalScore = 0;
+    submittedQuestionIds.forEach((questionId) => {
+      if (submittedAnswers[questionId] === correctByQuestionId.get(questionId)) {
+        finalScore += 1;
       }
     });
 
     const submittedAt = new Date();
     await db.$transaction(async (tx) => {
-      const participantUpdate = await tx.participant.updateMany({
-        where: {
-          usn,
-          submittedAt: null
-        },
-        data: {
-          phase1Score: score,
-          submittedAt
-        }
-      });
-
-      if (participantUpdate.count === 0) {
-        throw new Error("Already submitted");
-      }
-
       const sessionUpdate = await tx.participantSession.updateMany({
         where: {
           usn,
           hasSubmitted: false
         },
         data: {
-          confirmedAnswers,
+          confirmedAnswers: submittedAnswers,
           hasSubmitted: true,
           submittedAt
         }
@@ -128,39 +154,69 @@ export async function POST(
       if (sessionUpdate.count === 0) {
         throw new Error("Already submitted");
       }
+
+      const participantUpdate = await tx.participant.updateMany({
+        where: {
+          usn,
+          submittedAt: null
+        },
+        data: {
+          phase1Score: finalScore,
+          submittedAt
+        }
+      });
+
+      if (participantUpdate.count === 0) {
+        throw new Error("Already submitted");
+      }
     });
 
-    // Submitted-only leaderboard rule: verify submit and score persistence before returning success.
-    const persistedStats = await getSessionSubmissionStats(usn);
-    if (!persistedStats.hasSubmitted || persistedStats.phase1Score === null || !Number.isInteger(persistedStats.phase1Score)) {
-      console.error("Submission persistence mismatch", {
-        usn,
-        hasSubmitted: persistedStats.hasSubmitted,
-        phase1Score: persistedStats.phase1Score
-      });
+    const persisted = await db.participant.findUnique({
+      where: { usn },
+      select: {
+        phase1Score: true,
+        session: {
+          select: {
+            hasSubmitted: true
+          }
+        }
+      }
+    });
+
+    if (!persisted?.session?.hasSubmitted || persisted.phase1Score === null || !Number.isInteger(persisted.phase1Score)) {
+      console.error("Submission persistence mismatch", { usn, persisted });
       return NextResponse.json({ error: "Submission persistence verification failed" }, { status: 500 });
     }
 
     return NextResponse.json({
       success: true,
-      score: persistedStats.phase1Score,
-      total: shuffledQuestionIds.length,
+      score: persisted.phase1Score,
       year: participantYear
     });
   } catch (error: unknown) {
     if (error instanceof Error && error.message === "Already submitted") {
-      if (normalizedUsn) {
-        const persistedStats = await getSessionSubmissionStats(normalizedUsn);
+      const fallbackUsn = normalizedUsn;
+      if (fallbackUsn) {
         const persistedParticipant = await db.participant.findUnique({
-          where: { usn: normalizedUsn },
-          select: { year: true, track: true }
+          where: { usn: fallbackUsn },
+          select: {
+            phase1Score: true,
+            year: true,
+            track: true,
+            session: {
+              select: {
+                hasSubmitted: true
+              }
+            }
+          }
         });
-        const persistedYear = persistedParticipant
-          ? persistedParticipant.year || (persistedParticipant.track === "1st_year" ? "1st" : "2nd")
-          : "2nd";
 
-        if (persistedStats.hasSubmitted && persistedStats.phase1Score !== null) {
-          return NextResponse.json({ success: true, score: persistedStats.phase1Score, total: 0, year: persistedYear });
+        if (persistedParticipant?.session?.hasSubmitted && persistedParticipant.phase1Score !== null) {
+          return NextResponse.json({
+            success: true,
+            score: persistedParticipant.phase1Score,
+            year: persistedParticipant.year || (persistedParticipant.track === "1st_year" ? "1st" : "2nd")
+          });
         }
       }
 

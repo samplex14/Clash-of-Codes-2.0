@@ -31,17 +31,20 @@ export interface RankedParticipant {
   rank: number;
 }
 
+type TrackFilter = "1st_year" | "2nd_year";
+
 const isSubmittedParticipantRecord = (value: SubmittedParticipantCandidate): value is SubmittedParticipant => {
   return value.session?.hasSubmitted === true && Number.isInteger(value.phase1Score);
 };
 
-export const getSubmittedParticipants = async (): Promise<SubmittedParticipant[]> => {
+export const getSubmittedParticipants = async (track?: TrackFilter): Promise<SubmittedParticipant[]> => {
   // Submitted-only leaderboard rule: only mapped participants with hasSubmitted=true.
   // phase1Score is non-null by schema and additionally validated as an integer below.
   const participants = await db.participant.findMany({
     where: {
       isMapped: true,
       phase1Score: { gte: 0 },
+      ...(track ? { track } : {}),
       session: {
         is: {
           hasSubmitted: true

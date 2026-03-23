@@ -40,6 +40,9 @@ export async function GET(
           ? participant.session.submittedAt.toISOString()
           : new Date(0).toISOString()
       })),
+      total: eligible.length,
+      limit: eligible.length,
+      offset: 0,
       totalEligible: eligible.length,
       totalRegistered
     });

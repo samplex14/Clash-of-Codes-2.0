@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Crown, Swords } from "lucide-react";
 import LoadingRadar from "@/components/ui/loading-radar";
-import type { LeaderboardParticipant, LeaderboardResponse, TournamentStatusResponse } from "@/types";
+import type { LeaderboardParticipant, LeaderboardResponse } from "@/types";
 
 type ViewState = "loading" | "holding" | "ready";
 
@@ -62,52 +62,6 @@ const LeaderboardPage: React.FC = () => {
   useEffect(() => {
     void loadLeaderboard();
   }, []);
-
-  useEffect(() => {
-    if (viewState !== "holding") {
-      return;
-    }
-
-    const interval = window.setInterval(() => {
-      void (async () => {
-        try {
-          const statusResponse = await fetch("/api/tournament/status", {
-            method: "GET",
-            cache: "no-store"
-          });
-
-          if (!statusResponse.ok) {
-            return;
-          }
-
-          const status = (await statusResponse.json()) as TournamentStatusResponse;
-          if (status.leaderboardVisible || status.allDone) {
-            await loadLeaderboard();
-          }
-        } catch {
-          // continue polling
-        }
-      })();
-    }, 5000);
-
-    return () => {
-      window.clearInterval(interval);
-    };
-  }, [viewState]);
-
-  useEffect(() => {
-    if (viewState !== "ready") {
-      return;
-    }
-
-    const interval = window.setInterval(() => {
-      void loadLeaderboard();
-    }, 5000);
-
-    return () => {
-      window.clearInterval(interval);
-    };
-  }, [viewState]);
 
   const finalists = useMemo<LeaderboardParticipant[]>(() => players.filter((player) => player.qualified).slice(0, 16), [players]);
   const leaderboard = useMemo<LeaderboardParticipant[]>(() => players, [players]);

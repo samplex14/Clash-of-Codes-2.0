@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { Crown, ScrollText, Swords, X } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { cn } from "@/lib/utils";
+import { cn, jitteredInterval } from "@/lib/utils";
 import ArenaLoadingCard from "@/components/ArenaLoadingCard";
 import Phase1QuestionPanel, { type Phase1QuestionItem } from "@/components/Phase1QuestionPanel";
 import { useParticipant } from "@/components/providers/ParticipantProvider";
@@ -35,6 +35,8 @@ interface BotMatchmakingResponse {
 
 interface QuestionResponse {
   questions: Phase1QuestionItem[];
+  timeLimitMinutes: number;
+  sessionCreatedAt: string;
 }
 
 interface RuleItem {
@@ -110,6 +112,8 @@ const ArenaPage: React.FC = () => {
   const [messageIndex, setMessageIndex] = useState<number>(0);
   const [opponent, setOpponent] = useState<{ name: string; usn: string } | null>(null);
   const [battleQuestions, setBattleQuestions] = useState<Phase1QuestionItem[]>([]);
+  const [battleTimeLimitSeconds, setBattleTimeLimitSeconds] = useState<number>(60 * 60);
+  const [battleDeadlineMs, setBattleDeadlineMs] = useState<number>(Date.now() + 60 * 60 * 1000);
   const [hasStartedBattle, setHasStartedBattle] = useState<boolean>(false);
   const [isStartSubmitting, setIsStartSubmitting] = useState<boolean>(false);
   const [activeIndex, setActiveIndex] = useState<number>(0);
@@ -119,6 +123,9 @@ const ArenaPage: React.FC = () => {
   const pollingIntervalRef: React.MutableRefObject<ReturnType<typeof setInterval> | null> = useRef<ReturnType<typeof setInterval> | null>(null);
   const matchmakingTimerRef: React.MutableRefObject<ReturnType<typeof setTimeout> | null> = useRef<ReturnType<typeof setTimeout> | null>(null);
   const tournamentProgressPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const matchmakingStartedForUsnRef = useRef<string | null>(null);
+  const matchmakingStatusFailureCountRef = useRef<number>(0);
+  const tournamentStatusFailureCountRef = useRef<number>(0);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -148,7 +155,18 @@ const ArenaPage: React.FC = () => {
 
   const loadQuestionsAndStartBattle = async (usn: string): Promise<void> => {
     const response = await apiRequest<QuestionResponse>(`/api/phase1/questions?usn=${encodeURIComponent(usn)}`);
+    const safeLimitMinutes = Number.isFinite(response.timeLimitMinutes) && response.timeLimitMinutes > 0
+      ? Math.floor(response.timeLimitMinutes)
+      : 60;
+    const timeLimitSeconds = safeLimitMinutes * 60;
+    const createdAtMs = Date.parse(response.sessionCreatedAt);
+    const resolvedDeadlineMs = Number.isFinite(createdAtMs)
+      ? createdAtMs + timeLimitSeconds * 1000
+      : Date.now() + timeLimitSeconds * 1000;
+
     setBattleQuestions(response.questions);
+    setBattleTimeLimitSeconds(timeLimitSeconds);
+    setBattleDeadlineMs(resolvedDeadlineMs);
     setArenaState("battle");
   };
 
@@ -205,9 +223,14 @@ const ArenaPage: React.FC = () => {
         }
       }
     }, 30000);
-    const response = await firstMatchmakingRequest;
+    let response: MatchmakingResponse | null = null;
+    try {
+      response = await firstMatchmakingRequest;
+    } catch {
+      response = null;
+    }
 
-    if (response.status === "matched" && response.opponent) {
+    if (response?.status === "matched" && response.opponent) {
       if (matchmakingTimerRef.current) {
         clearTimeout(matchmakingTimerRef.current);
         matchmakingTimerRef.current = null;
@@ -219,18 +242,30 @@ const ArenaPage: React.FC = () => {
     }
 
     clearIntervalRef(pollingIntervalRef);
-    pollingIntervalRef.current = setInterval(() => {
-      void (async () => {
-        try {
-          const matched = await resolveOpponentFromStatus(usn);
-          if (matched) {
-            clearIntervalRef(pollingIntervalRef);
+
+    const startMatchmakingStatusPolling = (baseMs: number): void => {
+      clearIntervalRef(pollingIntervalRef);
+      pollingIntervalRef.current = setInterval(() => {
+        void (async () => {
+          try {
+            const matched = await resolveOpponentFromStatus(usn);
+            matchmakingStatusFailureCountRef.current = 0;
+            if (matched) {
+              clearIntervalRef(pollingIntervalRef);
+            }
+          } catch {
+            matchmakingStatusFailureCountRef.current += 1;
+            if (matchmakingStatusFailureCountRef.current > 3) {
+              matchmakingStatusFailureCountRef.current = 0;
+              const nextBase = Math.min(baseMs * 2, 30000);
+              startMatchmakingStatusPolling(nextBase);
+            }
           }
-        } catch {
-          // Keep polling; the next cycle may succeed.
-        }
-      })();
-    }, 3000);
+        })();
+      }, jitteredInterval(baseMs, 1000));
+    };
+
+    startMatchmakingStatusPolling(3000);
   };
 
   useEffect(() => {
@@ -263,6 +298,12 @@ const ArenaPage: React.FC = () => {
       return;
     }
 
+    if (matchmakingStartedForUsnRef.current === participant.usn) {
+      return;
+    }
+
+    matchmakingStartedForUsnRef.current = participant.usn;
+
     setSearchSeconds(0);
     void beginMatchmaking(participant.usn);
 
@@ -276,6 +317,9 @@ const ArenaPage: React.FC = () => {
         pollingIntervalRef.current = null;
       }
       clearIntervalRef(tournamentProgressPollRef);
+      if (matchmakingStartedForUsnRef.current === participant.usn) {
+        matchmakingStartedForUsnRef.current = null;
+      }
     };
   }, [participant?.usn, router]);
 
@@ -300,6 +344,7 @@ const ArenaPage: React.FC = () => {
     }
 
     let isActive = true;
+    tournamentStatusFailureCountRef.current = 0;
 
     const pollTournamentStatus = async (): Promise<void> => {
       try {
@@ -319,13 +364,31 @@ const ArenaPage: React.FC = () => {
 
     void pollTournamentStatus();
 
-    tournamentProgressPollRef.current = setInterval(() => {
-      void pollTournamentStatus();
-    }, 4000);
+    const startTournamentStatusPolling = (baseMs: number): void => {
+      clearIntervalRef(tournamentProgressPollRef);
+      tournamentProgressPollRef.current = setInterval(() => {
+        void (async () => {
+          try {
+            await pollTournamentStatus();
+            tournamentStatusFailureCountRef.current = 0;
+          } catch {
+            tournamentStatusFailureCountRef.current += 1;
+            if (tournamentStatusFailureCountRef.current > 3) {
+              tournamentStatusFailureCountRef.current = 0;
+              const nextBase = Math.min(baseMs * 2, 30000);
+              startTournamentStatusPolling(nextBase);
+            }
+          }
+        })();
+      }, jitteredInterval(baseMs, 2000));
+    };
+
+    startTournamentStatusPolling(4000);
 
     return () => {
       isActive = false;
       clearIntervalRef(tournamentProgressPollRef);
+      tournamentStatusFailureCountRef.current = 0;
     };
   }, [arenaState, router]);
 
@@ -347,12 +410,8 @@ const ArenaPage: React.FC = () => {
   };
 
   const handleSubmitted = (battleScore: number): void => {
-    if (!participant) {
-      return;
-    }
-
     updateParticipant({ phase1Score: battleScore });
-    setArenaState("waiting");
+    router.push("/leaderboard");
   };
 
   const activeMessage = useMemo<string>(() => searchingLines[messageIndex], [messageIndex]);
@@ -553,7 +612,15 @@ const ArenaPage: React.FC = () => {
         </div>
       ) : null}
 
-      {arenaState === "battle" ? <Phase1QuestionPanel usn={participant.usn} questions={battleQuestions} onSubmitted={handleSubmitted} /> : null}
+      {arenaState === "battle" ? (
+        <Phase1QuestionPanel
+          usn={participant.usn}
+          questions={battleQuestions}
+          timeLimitSeconds={battleTimeLimitSeconds}
+          deadlineMs={battleDeadlineMs}
+          onSubmitted={handleSubmitted}
+        />
+      ) : null}
 
       {arenaState === "waiting" ? null : null}
       </div>

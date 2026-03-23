@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { assignMatchForParticipant, WAITING_FOR_OPPONENT } from "@/lib/matchmaking";
+import { assignMatchForParticipant } from "@/lib/matchmaking";
 import { db } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
@@ -33,26 +33,11 @@ export async function POST(
 
     const participant = await db.participant.findUnique({
       where: { usn },
-      select: { usn: true, year: true, mappedTo: true, mappedAt: true, isMapped: true }
+      select: { year: true }
     });
 
     if (!participant) {
       return NextResponse.json({ error: "Participant not found" }, { status: 404 });
-    }
-
-    if (participant.isMapped && participant.mappedTo && participant.mappedTo !== WAITING_FOR_OPPONENT) {
-      const opponent = await db.participant.findUnique({
-        where: { usn: participant.mappedTo },
-        select: { usn: true, name: true }
-      });
-
-      if (opponent) {
-        return NextResponse.json({
-          status: "matched",
-          opponent,
-          matchedAt: (participant.mappedAt ?? new Date()).toISOString()
-        });
-      }
     }
 
     const result = await assignMatchForParticipant(usn, participant.year);
@@ -67,9 +52,16 @@ export async function POST(
       });
     }
 
+    if (result.status === "retry") {
+      return NextResponse.json({
+        status: "waiting",
+        message: result.message
+      });
+    }
+
     return NextResponse.json({
       status: "waiting",
-      message: "No rival available yet. Hold your ground, Warrior."
+      message: result.queueMessage
     });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Unexpected matchmaking error";
