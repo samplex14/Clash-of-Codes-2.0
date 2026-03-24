@@ -33,7 +33,7 @@ export async function GET(
         name: participant.name,
         usn: participant.usn,
         phase1Score: participant.phase1Score,
-        // Leaderboard rule: top 8 are qualified, all others are eliminated.
+        // Leaderboard rule: top 16 are qualified, all others are eliminated.
         qualified: index < TOP_QUALIFIED_COUNT,
         hasSubmitted: true as const,
         submittedAt: participant.session.submittedAt

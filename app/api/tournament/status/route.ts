@@ -77,25 +77,50 @@ export async function GET(
         }
 
         // Submitted-only leaderboard rule: qualification candidates must be fully submitted and scored.
-        const rankedParticipants = await tx.participant.findMany({
-          where: {
-            isMapped: true,
-            phase1Score: {
-              gte: 0
-            },
-            session: {
-              is: {
-                hasSubmitted: true
+        // Robustness requirement: qualify top N independently per track/year.
+        const [rankedFirstYearParticipants, rankedSecondYearParticipants] = await Promise.all([
+          tx.participant.findMany({
+            where: {
+              isMapped: true,
+              track: "1st_year",
+              phase1Score: {
+                gte: 0
+              },
+              session: {
+                is: {
+                  hasSubmitted: true
+                }
               }
+            },
+            orderBy: [{ phase1Score: "desc" }, { submittedAt: "asc" }, { id: "asc" }],
+            select: {
+              id: true
             }
-          },
-          orderBy: [{ phase1Score: "desc" }, { submittedAt: "asc" }, { id: "asc" }],
-          select: {
-            id: true
-          }
-        });
+          }),
+          tx.participant.findMany({
+            where: {
+              isMapped: true,
+              track: "2nd_year",
+              phase1Score: {
+                gte: 0
+              },
+              session: {
+                is: {
+                  hasSubmitted: true
+                }
+              }
+            },
+            orderBy: [{ phase1Score: "desc" }, { submittedAt: "asc" }, { id: "asc" }],
+            select: {
+              id: true
+            }
+          })
+        ]);
 
-        const qualifiedIds = rankedParticipants.slice(0, TOP_QUALIFIED_COUNT).map((participant) => participant.id);
+        const qualifiedIds = [
+          ...rankedFirstYearParticipants.slice(0, TOP_QUALIFIED_COUNT),
+          ...rankedSecondYearParticipants.slice(0, TOP_QUALIFIED_COUNT)
+        ].map((participant) => participant.id);
 
         await tx.participant.updateMany({
           where: {
