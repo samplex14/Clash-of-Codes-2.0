@@ -90,7 +90,16 @@ const rules: RuleItem[] = [
   {
     title: "Fair Play and Stability",
     text: "No AI tools, no external assistance, and no exploit attempts. Avoid refreshing or changing devices mid-battle; organizer decisions are final."
-  }
+  },
+  {
+    title: "Regarding Start",
+    text: "Till you get an announcement to start your match. Don't Click on the Button; Sound the Battle Horn"
+  },
+  {
+    title: "Refresh",
+    text: "Do not Refresh your page at any cost until someone from the team asks you to do so."
+  },
+
 ];
 
 const BACKGROUND_IMAGES: string[] = [
